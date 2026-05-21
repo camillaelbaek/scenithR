@@ -1,0 +1,6 @@
+*.fcs
+*.xlsx
+*.docx
+.DS_Store
+archive/*
+archive/
