@@ -1,4 +1,4 @@
-# run_app.R
+# runApp.R
 # Installs any missing packages, then launches the Scenith Shiny app.
 
 pkgs <- c(
