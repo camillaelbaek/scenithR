@@ -1,6 +1,68 @@
 # scenithR — Scenith Flow Cytometry Analysis
 
-A reproducible analysis pipeline for **Scenith** metabolic assays using flow cytometry. Includes an interactive Shiny app and a self-contained R Markdown report.
+A reproducible analysis pipeline for **Scenith** metabolic assays using flow cytometry.
+
+---
+
+## What you need to run the app
+
+| Input | Format | Required | Notes |
+|-------|--------|----------|-------|
+| FCS files | `.fcs` | ✓ | All files from one experiment; select them all at once |
+| Plate metadata | `.csv` or `.xlsx` | ✓ | Maps each well to genotype and perturbation (see below) |
+| R ≥ 4.2 | — | ✓ | Packages installed automatically on first run |
+| Panel/channel info | — | — | Choose a preset in the app; no file needed unless custom |
+
+### Metadata columns
+
+| Column | Required | Description | Example values |
+|--------|----------|-------------|----------------|
+| `well_code` | ✓ | Well position — letter + zero-padded number | `B01`, `C12`, `G04` |
+| `genotype` | ✓ | Cell line or genotype label | `WT`, `KO`, `WT_HSV` |
+| `perturbation` | ✓ | Metabolic probe condition | `Co`, `DG`, `O`, `DGO`, `UNST` |
+| `treatment` | optional | Broader experimental condition | `fed`, `starved`, `drug_X` |
+| `time` | optional | Timepoint | `0h`, `4h`, `24h` |
+
+Extra columns (e.g. `replicate`, `passage`) are allowed and carried through all tables.
+
+> **Download a pre-filled template** from the app sidebar — it covers all rows B–H × columns 1–12. Fill in `genotype` and `perturbation` and save as CSV.
+
+### FCS file naming
+
+The app extracts the well position from the FCS filename using the pattern `[A-H][0-9]{1,2}`. Standard instrument-exported names work automatically:
+
+```
+Specimen_004_B1_B01.fcs   →  well B01
+Specimen_002_C12_C12.fcs  →  well C12
+```
+
+If your filenames do not contain a well code in this format, the files will still load but will not match the metadata.
+
+### Perturbation labels for Scenith parameters
+
+Four specific labels trigger the metabolic parameter calculations. Use these exact spellings in the `perturbation` column:
+
+| Label | Condition |
+|-------|-----------|
+| `Co` | Control (DMSO) |
+| `DG` | 2-Deoxy-D-glucose — glycolysis inhibitor |
+| `O` | Oligomycin A — OXPHOS / ATP synthase inhibitor |
+| `DGO` | DG + Oligomycin — combined inhibition |
+
+Other perturbation labels (e.g. `UNST`, `DMSO_25uL`) are kept in QC plots but excluded from Scenith parameter calculations.
+
+### Channel configuration
+
+Configure which fluorescence channel plays which role in the **Channels** tab. Select a preset or choose Custom to assign channels from your FCS file.
+
+| Role | Default | What it is |
+|------|---------|------------|
+| Scatter X | `FSC.A` | X-axis for singlet gate |
+| Scatter Y | `FSC.H` | Y-axis for singlet gate |
+| Live/Dead | `FITC.A` | Dead cell exclusion channel (set to None to skip) |
+| Signal | `APC.A` | Puromycin readout channel |
+
+Available presets: APC/FITC, APC/BV421, PE/FITC, and "no live/dead stain".
 
 ---
 
@@ -8,7 +70,7 @@ A reproducible analysis pipeline for **Scenith** metabolic assays using flow cyt
 
 ### Easiest — run directly from R (no download needed)
 
-If you have R installed, paste this into your R console:
+Paste this into your R console:
 
 ```r
 shiny::runGitHub("scenithR", "camillaelbaek", subdir = "ScenithApp")
@@ -20,39 +82,36 @@ R fetches the app from GitHub and opens it in your browser. The first run instal
 
 ### Alternative — download and run locally
 
-1. Download the repository:
-   - Click the green **Code** button on GitHub → **Download ZIP**
-   - Unzip it anywhere on your computer
-
-2. Open the `ScenithApp/` folder
-
-3. Launch the app for your operating system:
-   - **macOS:** double-click `Mac_run_app.command`
-     *(first time: right-click → Open to bypass Gatekeeper)*
+1. Click the green **Code** button on GitHub → **Download ZIP**, then unzip it anywhere.
+2. Open the `ScenithApp/` folder.
+3. Launch for your OS:
+   - **macOS:** double-click `Mac_run_app.command` *(first time: right-click → Open)*
    - **Windows:** double-click `Win_run_app.bat`
-   - **Any OS:** open a terminal in `ScenithApp/` and run `Rscript run_app.R`
-
-The launcher installs any missing R packages automatically.
+   - **Any OS:** run `Rscript run_app.R` in a terminal inside `ScenithApp/`
 
 ---
 
-## Overview
+## Workflow in the app
 
-[Scenith](https://www.scenith.com/) (Single Cell ENergetic meTabolism by profilIng tHe protein synthesis) profiles cellular metabolism by measuring **puromycin incorporation** (translation) as a proxy for ATP availability, under targeted metabolic inhibition:
+1. Upload FCS files and metadata in the sidebar
+2. **Channels tab** — select your panel preset (or configure custom channels)
+3. **Gate 1: Singlets** — adjust the polygon gate; preview updates live
+4. **Gate 2: Live/Dead** — set the threshold; skipped if no live/dead channel configured
+5. **Gate 3: Signal** — set the minimum puromycin signal threshold
+6. Click **Run analysis** → results appear in the remaining tabs
 
-| Condition | Inhibitor | What it blocks |
-|-----------|-----------|----------------|
-| **Co** | — | Control (DMSO) |
-| **DG** | 2-Deoxy-D-glucose | Glycolysis |
-| **O** | Oligomycin A | OXPHOS (ATP synthase) |
-| **DGO** | DG + Oligomycin | Both pathways |
+---
 
-Four metabolic parameters are derived per genotype:
+## Overview of the Scenith method
+
+[Scenith](https://www.scenith.com/) profiles cellular metabolism by measuring **puromycin incorporation** (translation) as a proxy for ATP availability under targeted metabolic inhibition. Four parameters are derived per group:
 
 1. **Glucose dependence** = 100 × (Co − DG) / (Co − DGO)
 2. **FAO/AAO capacity** = 100 − glucose dependence
 3. **Mitochondrial dependence** = 100 × (Co − O) / (Co − DGO)
 4. **Glycolytic capacity** = 100 − mitochondrial dependence
+
+When `treatment` and/or `time` columns are present in the metadata with more than one unique value, parameters are computed per **genotype × treatment × time** group.
 
 ---
 
@@ -61,70 +120,17 @@ Four metabolic parameters are derived per genotype:
 ```
 .
 ├── ScenithApp/
-│   ├── app.R                  # Shiny app (main analysis tool)
+│   ├── app.R                  # Shiny app
 │   ├── run_app.R              # Launcher: installs packages + starts app
-│   ├── Mac_run_app.command    # Double-click launcher for macOS
-│   └── Win_run_app.bat        # Double-click launcher for Windows
-├── analysis_v2.Rmd            # R Markdown report (scripted / offline use)
+│   ├── Mac_run_app.command    # macOS double-click launcher
+│   └── Win_run_app.bat        # Windows double-click launcher
+├── analysis_v2.Rmd            # R Markdown report (offline / scripted use)
 ├── fcs-input/                 # FCS files — git-ignored
-│   ├── exp1/
-│   └── exp2/
 ├── .gitignore
 └── README.md
 ```
 
-> FCS files (`.fcs`), Excel files (`.xlsx`), Word documents, and FlowJo workspaces (`.wsp`) are listed in `.gitignore` and are not tracked by git.
-
----
-
-## Metadata format
-
-The metadata file tells the app which wells belong to which experimental group. It must be a **CSV** or **XLSX** file with at least these three columns:
-
-| Column | Description | Example values |
-|--------|-------------|----------------|
-| `well_code` | Well position: row letter + zero-padded column number | `B01`, `C12`, `G04` |
-| `genotype` | Cell genotype or cell line label | `WT`, `KO`, `WT_HSV` |
-| `treatment` | Metabolic condition applied to the well | `Co`, `DG`, `O`, `DGO` |
-
-Additional columns are allowed (e.g. `replicate`, `passage`) and will be carried through all tables.
-
-**Download a pre-filled template** directly from the app sidebar ("Download CSV template"). It contains all rows B–H × columns 1–12 with empty `genotype` and `treatment` columns — fill those in and save.
-
-### Well code format
-
-- Use the format `B01` (uppercase letter + two-digit column number).
-- Single-digit formats like `B1` are also accepted and normalized automatically.
-- The app extracts well codes from FCS filenames using the pattern `[A-H][0-9]{1,2}` (e.g. `Specimen_004_B1_B01.fcs` → `B01`).
-
-### Example metadata CSV
-
-```csv
-well_code,genotype,treatment
-B01,WT,Co
-B02,WT,Co
-B03,WT,Co
-C01,WT,DG
-C02,WT,DG
-D01,WT,O
-E01,WT,DGO
-G01,WT,UNST
-```
-
-### Treatment names for Scenith parameters
-
-Scenith parameters are computed only when treatments spelled exactly **`Co`**, **`DG`**, **`O`**, and **`DGO`** are present. Additional treatments appear in QC and summary plots but not in the parameter calculations.
-
----
-
-## Gating parameters
-
-| Parameter | Default | Description |
-|-----------|---------|-------------|
-| FITC-A threshold | 4 000 | Live/Dead gate: keep cells **below** this value |
-| APC-A threshold | 80 | Puromycin gate: keep cells **at or above** this value |
-
-Adjust in the sidebar after reviewing the QC plots, then click **Run** again.
+> `.fcs`, `.xlsx`, `.wsp`, and `.docx` files are in `.gitignore` and not tracked by git.
 
 ---
 
@@ -132,32 +138,27 @@ Adjust in the sidebar after reviewing the QC plots, then click **Run** again.
 
 | Tab | What it shows |
 |-----|---------------|
-| **Overview** | Upload status and experiment description |
-| **Metadata** | Uploaded metadata preview + per-FCS match status |
-| **Sample mapping** | FCS files joined to metadata, with unmatched-well warnings |
-| **Gating QC** | Singlet, live, and puromycin gate diagnostic plots |
+| **Overview** | Status checklist and workflow guide |
+| **Metadata** | Uploaded metadata preview + per-FCS match status (green/red) |
+| **Channels** | Panel preset or custom channel assignment |
+| **Gate 1: Singlets** | Polygon gate on scatter channels — 4 adjustable vertices |
+| **Gate 2: Live/Dead** | Threshold gate on live/dead channel |
+| **Gate 3: Signal** | Minimum threshold on signal channel |
 | **Cell counts** | Cells retained at each gating step |
-| **Puromycin summary** | Mean APC-A per sample (all live and puro+ cells) |
-| **Scenith parameters** | Derived metabolic parameters, density plots, bar plots |
+| **Summary** | Mean signal per sample (all live and signal-positive cells) |
+| **Scenith parameters** | Derived parameters, density plots, and bar plots |
 
 ---
 
 ## Required R packages
 
-`run_app.R` installs any missing packages automatically on launch.
+Installed automatically by `run_app.R`.
 
-**CRAN packages**
-```
-shiny, dplyr, tidyr, ggplot2, DT, stringr, purrr, scales,
-readr, readxl, ggridges, ggpubr, viridis, ggbeeswarm, sp
-```
+**CRAN:** `shiny`, `dplyr`, `tidyr`, `ggplot2`, `DT`, `stringr`, `purrr`, `scales`, `readr`, `readxl`, `ggridges`, `ggpubr`, `viridis`, `ggbeeswarm`, `sp`
 
-**Bioconductor packages** (installed via `BiocManager`)
-```
-flowCore, flowViz, ggcyto, openCyto
-```
+**Bioconductor** (via `BiocManager`): `flowCore`, `flowViz`, `ggcyto`, `openCyto`
 
-If Bioconductor packages fail to install automatically, run this in R:
+If Bioconductor packages fail to install automatically:
 ```r
 if (!requireNamespace("BiocManager", quietly = TRUE))
   install.packages("BiocManager")
@@ -170,20 +171,20 @@ Requires **R ≥ 4.2**.
 
 ## Troubleshooting
 
-**"Missing required column(s): genotype, treatment"**
-Download the CSV template from the app sidebar, fill in the columns, and re-upload.
+**"Missing required column(s): genotype, perturbation"**
+Download the CSV template from the sidebar, fill in the columns, and re-upload.
 
 **"X sample(s) could not be matched"**
-Check that FCS filenames contain a standard well code (`[A-H][0-9]{1,2}`) and that the metadata covers all expected wells.
+Check that FCS filenames contain a well code matching `[A-H][0-9]{1,2}` and that the metadata covers all those wells.
 
-**Scenith plots show "treatments required" message**
-The treatments `Co`, `DG`, `O`, and `DGO` must be present and spelled exactly that way.
+**Scenith plots show "perturbations required"**
+The perturbations `Co`, `DG`, `O`, and `DGO` must all be present and spelled exactly that way.
 
-**App is slow on the all-samples FSC plot**
-Keep that checkbox disabled until you specifically need it.
+**Gate preview is blank**
+Upload FCS files and configure channels before using the gating tabs.
 
 **Bioconductor packages fail to install**
-Ensure R ≥ 4.2, then try `BiocManager::install(...)` manually (see above).
+Ensure R ≥ 4.2 and try `BiocManager::install(...)` manually (see above).
 
 ---
 
