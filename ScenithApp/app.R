@@ -72,7 +72,7 @@ save_plot_png <- function(p, f, w=7, h=5) ggsave(f, p, width=w, height=h, dpi=30
 empty_gg      <- function(msg) ggplot() + annotate("text", x=.5, y=.5, label=msg, size=4.5, colour="grey50") + theme_void()
 
 make_singlet_gate <- function(x1, y1, x2, y2, x3, y3, x4, y4, xchan, ychan) {
-  m <- matrix(c(x1,y1, x2,y2, x3,y3, x4,y4), ncol=2, byrow=TRUE)
+  m <- matrix(as.numeric(c(x1,y1, x2,y2, x3,y3, x4,y4)), ncol=2, byrow=TRUE)
   colnames(m) <- c(xchan, ychan)
   polygonGate(filterId="Singlets", gate=m)
 }
