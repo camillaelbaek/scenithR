@@ -698,7 +698,7 @@ server <- function(input, output, session) {
           n_distinct(na.omit(meta$time))      > 1) grp_vars <- c(grp_vars, "time")
 
       setProgress(.8, detail="Computing Scenith parameters\u2026")
-      geo_means <- cell_filtered %>%
+      geo_means <- cell_level %>% #was cell_filtered
         mutate(genotype = factor(genotype, levels=genotype_lvl)) %>%
         filter(perturbation %in% c("Co","DG","O","DGO")) %>%
         group_by(across(all_of(c(grp_vars, "perturbation")))) %>%

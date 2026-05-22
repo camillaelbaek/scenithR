@@ -1,6 +1,9 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it using the metadata below."
 type: software
+version: 1.0.0
+date-released: 2025-01-01
+license: MIT
 title: "scenithR"
 abstract: >
   A reproducible Shiny-based analysis pipeline for Scenith flow cytometry
@@ -17,7 +20,6 @@ authors:
     affiliation: "Centre for Genomic Regulation (CRG), Barcelona"
 repository-code: "https://github.com/camillaelbaek/scenithR"
 url: "https://github.com/camillaelbaek/scenithR"
-license: MIT
 keywords:
   - flow cytometry
   - Scenith
@@ -26,9 +28,6 @@ keywords:
   - single-cell
   - R
   - Shiny
-version: "1.0.0"
-date-released: "2025-11-25"
-
 references:
   - type: article
     title: "SCENITH: A Flow Cytometry-Based Method to Functionally Profile Energy Metabolism with Single-Cell Resolution"
