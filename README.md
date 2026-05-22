@@ -17,7 +17,7 @@
 Paste this into your R console:
 
 ```r
-shiny::runGitHub("scenithR", "camillaelbaek", subdir = "scenithApp")
+shiny::runGitHub("scenithR", "camillaelbaek", subdir = "scenithR_App")
 ```
 
 R fetches the app from GitHub and opens it in your browser. The first run installs missing packages automatically — this may take a few minutes.
@@ -90,11 +90,11 @@ Available presets: APC/FITC, APC/BV421, PE/FITC, and "no live/dead stain".
 ### Alternative — download and run locally
 
 1. Click the green **Code** button on GitHub → **Download ZIP**, then unzip it anywhere.
-2. Open the `scenithApp/` folder.
+2. Open the `scenithR_App/` folder.
 3. Launch for your OS:
    - **macOS:** double-click `Mac_run_app.command` *(first time: right-click → Open)*
    - **Windows:** double-click `Win_run_app.bat`
-   - **Any OS:** run `Rscript runApp.R` in a terminal inside `scenithApp/`
+   - **Any OS:** run `Rscript runApp.R` in a terminal inside `scenithR_App/`
 
 ---
 
@@ -126,7 +126,7 @@ When `treatment` and/or `time` columns are present in the metadata with more tha
 
 ```
 .
-├── scenithApp/
+├── scenithR_App/
 │   ├── app.R                  # Shiny app
 │   ├── runApp.R              # Launcher: installs packages + starts app
 │   ├── Mac_run_app.command    # macOS double-click launcher
