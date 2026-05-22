@@ -7,6 +7,20 @@
 
 ---
 
+## Quick start
+
+### Easiest — run directly from R (no download needed)
+
+Paste this into your R console:
+
+```r
+shiny::runGitHub("scenithR", "camillaelbaek", subdir = "ScenithApp")
+```
+
+R fetches the app from GitHub and opens it in your browser. The first run installs missing packages automatically — this may take a few minutes.
+
+---
+
 ## What you need to run the app
 
 | Input | Format | Required | Notes |
@@ -69,19 +83,6 @@ Available presets: APC/FITC, APC/BV421, PE/FITC, and "no live/dead stain".
 
 ---
 
-## Quick start
-
-### Easiest — run directly from R (no download needed)
-
-Paste this into your R console:
-
-```r
-shiny::runGitHub("scenithR", "camillaelbaek", subdir = "ScenithApp")
-```
-
-R fetches the app from GitHub and opens it in your browser. The first run installs missing packages automatically — this may take a few minutes.
-
----
 
 ### Alternative — download and run locally
 
@@ -127,7 +128,6 @@ When `treatment` and/or `time` columns are present in the metadata with more tha
 │   ├── run_app.R              # Launcher: installs packages + starts app
 │   ├── Mac_run_app.command    # macOS double-click launcher
 │   └── Win_run_app.bat        # Windows double-click launcher
-├── analysis_v2.Rmd            # R Markdown report (offline / scripted use)
 ├── fcs-input/                 # FCS files — git-ignored
 ├── .gitignore
 └── README.md
