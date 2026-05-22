@@ -94,7 +94,7 @@ Available presets: APC/FITC, APC/BV421, PE/FITC, and "no live/dead stain".
 3. Launch for your OS:
    - **macOS:** double-click `Mac_run_app.command` *(first time: right-click → Open)*
    - **Windows:** double-click `Win_run_app.bat`
-   - **Any OS:** run `Rscript runApp.R` in a terminal inside `scenithR_App/`
+   - **Any OS:** run `Rscript run_app.R` in a terminal inside `scenithR_App/`
 
 ---
 
@@ -163,7 +163,7 @@ When `treatment` and/or `time` columns are present in the metadata with more tha
 
 ## Required R packages
 
-Installed automatically by `runApp.R`.
+Installed automatically by `run_app.R`.
 
 **CRAN:** `shiny`, `dplyr`, `tidyr`, `ggplot2`, `DT`, `stringr`, `purrr`, `scales`, `readr`, `readxl`, `ggridges`, `ggpubr`, `viridis`, `ggbeeswarm`, `sp`
 
