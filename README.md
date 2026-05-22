@@ -1,6 +1,38 @@
-# Scenith Flow Cytometry Analysis
+# scenithR — Scenith Flow Cytometry Analysis
 
-A reproducible analysis pipeline for **Scenith** metabolic assays using flow cytometry. Includes both an interactive Shiny app and a self-contained R Markdown report.
+A reproducible analysis pipeline for **Scenith** metabolic assays using flow cytometry. Includes an interactive Shiny app and a self-contained R Markdown report.
+
+---
+
+## Quick start
+
+### Easiest — run directly from R (no download needed)
+
+If you have R installed, paste this into your R console:
+
+```r
+shiny::runGitHub("scenithR", "camillaelbaek", subdir = "ScenithApp")
+```
+
+R fetches the app from GitHub and opens it in your browser. The first run installs missing packages automatically — this may take a few minutes.
+
+---
+
+### Alternative — download and run locally
+
+1. Download the repository:
+   - Click the green **Code** button on GitHub → **Download ZIP**
+   - Unzip it anywhere on your computer
+
+2. Open the `ScenithApp/` folder
+
+3. Launch the app for your operating system:
+   - **macOS:** double-click `Mac_run_app.command`
+     *(first time: right-click → Open to bypass Gatekeeper)*
+   - **Windows:** double-click `Win_run_app.bat`
+   - **Any OS:** open a terminal in `ScenithApp/` and run `Rscript run_app.R`
+
+The launcher installs any missing R packages automatically.
 
 ---
 
@@ -15,7 +47,7 @@ A reproducible analysis pipeline for **Scenith** metabolic assays using flow cyt
 | **O** | Oligomycin A | OXPHOS (ATP synthase) |
 | **DGO** | DG + Oligomycin | Both pathways |
 
-Puromycin signal (APC-A) reflects translation, which is ATP-dependent. Four metabolic parameters are derived per genotype:
+Four metabolic parameters are derived per genotype:
 
 1. **Glucose dependence** = 100 × (Co − DG) / (Co − DGO)
 2. **FAO/AAO capacity** = 100 − glucose dependence
@@ -31,7 +63,8 @@ Puromycin signal (APC-A) reflects translation, which is ATP-dependent. Four meta
 ├── ScenithApp/
 │   ├── app.R                  # Shiny app (main analysis tool)
 │   ├── run_app.R              # Launcher: installs packages + starts app
-│   └── Mac_run_app.command    # Double-click launcher for macOS
+│   ├── Mac_run_app.command    # Double-click launcher for macOS
+│   └── Win_run_app.bat        # Double-click launcher for Windows
 ├── analysis_v2.Rmd            # R Markdown report (scripted / offline use)
 ├── fcs-input/                 # FCS files — git-ignored
 │   ├── exp1/
@@ -41,35 +74,6 @@ Puromycin signal (APC-A) reflects translation, which is ATP-dependent. Four meta
 ```
 
 > FCS files (`.fcs`), Excel files (`.xlsx`), Word documents, and FlowJo workspaces (`.wsp`) are listed in `.gitignore` and are not tracked by git.
-
----
-
-## Quick start
-
-### Option A — Shiny app (recommended)
-
-**macOS:** double-click `ScenithApp/Mac_run_app.command`
-
-**Windows / Linux:** open a terminal in the `ScenithApp/` folder and run:
-```
-Rscript run_app.R
-```
-
-The app will open in your browser. Then follow these steps:
-
-1. **Upload FCS files** — select all `.fcs` files from your experiment folder
-2. **Upload plate metadata** — a CSV or XLSX file describing your plate layout (see [Metadata format](#metadata-format) below)
-3. Adjust gating thresholds if needed (see [Gating parameters](#gating-parameters))
-4. Click **Run / Recompute analysis**
-
-All plots have a **Download PNG** button.
-
-### Option B — R Markdown report
-
-Open `analysis_v2.Rmd` in RStudio and click **Knit**. Before knitting, update the two paths near the top of the document:
-
-- `fcs.dir` — path to the folder containing your FCS files
-- `read_xlsx(...)` — path to your metadata XLSX file
 
 ---
 
@@ -83,7 +87,7 @@ The metadata file tells the app which wells belong to which experimental group. 
 | `genotype` | Cell genotype or cell line label | `WT`, `KO`, `WT_HSV` |
 | `treatment` | Metabolic condition applied to the well | `Co`, `DG`, `O`, `DGO` |
 
-Additional columns are allowed (e.g. `replicate`, `passage`, `experimenter`) and will be carried through all tables.
+Additional columns are allowed (e.g. `replicate`, `passage`) and will be carried through all tables.
 
 **Download a pre-filled template** directly from the app sidebar ("Download CSV template"). It contains all rows B–H × columns 1–12 with empty `genotype` and `treatment` columns — fill those in and save.
 
@@ -100,8 +104,6 @@ well_code,genotype,treatment
 B01,WT,Co
 B02,WT,Co
 B03,WT,Co
-B04,WT_HSV,Co
-B05,WT_HSV,Co
 C01,WT,DG
 C02,WT,DG
 D01,WT,O
@@ -111,7 +113,7 @@ G01,WT,UNST
 
 ### Treatment names for Scenith parameters
 
-Scenith parameters are computed only when treatments spelled exactly **`Co`**, **`DG`**, **`O`**, and **`DGO`** are present in the metadata. You may have additional treatments — they will appear in QC and summary plots but not in the Scenith parameter calculations.
+Scenith parameters are computed only when treatments spelled exactly **`Co`**, **`DG`**, **`O`**, and **`DGO`** are present. Additional treatments appear in QC and summary plots but not in the parameter calculations.
 
 ---
 
@@ -119,10 +121,10 @@ Scenith parameters are computed only when treatments spelled exactly **`Co`**, *
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| FITC-A threshold | 4 000 | Live/Dead gate: keep cells **below** this value (low FITC-A = live) |
-| APC-A threshold | 80 | Puromycin gate: keep cells **at or above** this value (puro+) |
+| FITC-A threshold | 4 000 | Live/Dead gate: keep cells **below** this value |
+| APC-A threshold | 80 | Puromycin gate: keep cells **at or above** this value |
 
-Review the QC plots after running and adjust these in the sidebar if needed, then click **Run** again. The "Representative sample index" fields control which individual sample is shown in the singlet and live-gate diagnostic plots.
+Adjust in the sidebar after reviewing the QC plots, then click **Run** again.
 
 ---
 
@@ -130,19 +132,19 @@ Review the QC plots after running and adjust these in the sidebar if needed, the
 
 | Tab | What it shows |
 |-----|---------------|
-| **Overview** | Upload status checklist and experiment description |
-| **Metadata** | Preview of uploaded metadata + per-FCS match status (green = matched, red = unmatched) |
-| **Sample mapping** | Full table of FCS files joined to their metadata, with unmatched-well warnings |
-| **Gating QC** | Singlet gate, live gate, and puromycin gate diagnostic plots |
-| **Cell counts** | Bar plot and table of cell counts at each gating step |
-| **Puromycin summary** | Mean APC-A per sample (all live cells and puro+ cells) |
-| **Scenith parameters** | Derived metabolic parameters, density overlay plots, and per-genotype bar plots |
+| **Overview** | Upload status and experiment description |
+| **Metadata** | Uploaded metadata preview + per-FCS match status |
+| **Sample mapping** | FCS files joined to metadata, with unmatched-well warnings |
+| **Gating QC** | Singlet, live, and puromycin gate diagnostic plots |
+| **Cell counts** | Cells retained at each gating step |
+| **Puromycin summary** | Mean APC-A per sample (all live and puro+ cells) |
+| **Scenith parameters** | Derived metabolic parameters, density plots, bar plots |
 
 ---
 
 ## Required R packages
 
-`run_app.R` automatically installs any missing packages when you launch the app.
+`run_app.R` installs any missing packages automatically on launch.
 
 **CRAN packages**
 ```
@@ -169,23 +171,33 @@ Requires **R ≥ 4.2**.
 ## Troubleshooting
 
 **"Missing required column(s): genotype, treatment"**
-Your metadata file is missing one or more required columns. Download the CSV template from the app sidebar, fill in the `genotype` and `treatment` columns, and re-upload.
+Download the CSV template from the app sidebar, fill in the columns, and re-upload.
 
-**"X sample(s) could not be matched to the metadata" (orange warning)**
-The well code extracted from those FCS filenames does not appear in the uploaded metadata. Check that the filename contains a standard well code (`[A-H][0-9]{1,2}`) and that the metadata covers all expected wells.
+**"X sample(s) could not be matched"**
+Check that FCS filenames contain a standard well code (`[A-H][0-9]{1,2}`) and that the metadata covers all expected wells.
 
 **Scenith plots show "treatments required" message**
-The treatments `Co`, `DG`, `O`, and `DGO` must be present in the metadata and spelled exactly that way for the Scenith parameter calculations to run.
+The treatments `Co`, `DG`, `O`, and `DGO` must be present and spelled exactly that way.
 
 **App is slow on the all-samples FSC plot**
-This plot loads raw events from every FCS file simultaneously. Keep the checkbox disabled until you specifically need it.
+Keep that checkbox disabled until you specifically need it.
 
 **Bioconductor packages fail to install**
-Ensure R ≥ 4.2. Try `BiocManager::install(...)` manually (see above).
+Ensure R ≥ 4.2, then try `BiocManager::install(...)` manually (see above).
+
+---
+
+## Citation
+
+If you use this pipeline, please cite the original Scenith method:
+
+Argüello RJ, Combes AJ, Char R, Gigan JP, Baaziz AI, Bousiquot E, Camosseto V, Samad B, Tsui J, Yan P, Boissonneau S, Figarella-Branger D, Gatti E, Janssen E, Krummel MF, Pierre P.
+**SCENITH: A Flow Cytometry-Based Method to Functionally Profile Energy Metabolism with Single-Cell Resolution.**
+*Cell Metabolism.* 2020;32(6):1063–1075.e7.
+DOI: [10.1016/j.cmet.2020.11.007](https://doi.org/10.1016/j.cmet.2020.11.007) · PMC: [PMC8407169](https://pmc.ncbi.nlm.nih.gov/articles/PMC8407169/)
 
 ---
 
 ## Authors
 
-- **Alba Perez Arribas** — experimental design and assay  
 - **celbaek** — analysis pipeline and Shiny app

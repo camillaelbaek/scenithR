@@ -67,7 +67,7 @@ auto_palette <- function(values, known_cols) {
   c(known_cols, new_pal)
 }
 
-theme_fifi <- function(base_size = 12) {
+theme_alba <- function(base_size = 12) {
   theme_bw(base_size = base_size) +
     theme(
       plot.title       = element_text(face = "bold", size = base_size + 2),
@@ -476,7 +476,7 @@ server <- function(input, output, session) {
       geom_gate(pg, colour = "red", size = 0.6) +
       geom_stats() +
       scale_fill_viridis_c(option = "magma") +
-      theme_fifi() +
+      theme_alba() +
       labs(title    = "Step 1: Singlet gate on FSC-A vs FSC-H",
            subtitle = paste0("Representative sample: ", sampleNames(df)[rep_singlet]),
            x = "FSC-A", y = "FSC-H", fill = "Cell density")
@@ -519,7 +519,7 @@ server <- function(input, output, session) {
           inherit.aes = FALSE,
           hjust = -0.1, vjust = 1.2, size = 2.5, color = "red", fontface = "bold"
         ) +
-        theme_fifi(8) +
+        theme_alba(8) +
         labs(title    = "FSC-A vs FSC-H for all samples (raw data)",
              subtitle = "Hex-binned; red polygon = singlet gate; text = % singlets per sample",
              x = "FSC-A", y = "FSC-H", fill = "Cell density")
@@ -540,7 +540,7 @@ server <- function(input, output, session) {
       geom_vline(xintercept = fitc_threshold, colour = "red",
                  linetype = "dashed", linewidth = 0.7) +
       scale_x_log10() +
-      theme_fifi() +
+      theme_alba() +
       labs(title    = "Step 2: Live-cell gate on FITC-A",
            subtitle = paste0("Representative sample: ", sampleNames(singleCell)[rep_live]),
            x = "FITC-A (log10)", y = "Density")
@@ -559,7 +559,7 @@ server <- function(input, output, session) {
       scale_y_log10(limits = c(1, NA)) +
       geom_hline(yintercept = puro_threshold, color = "red", linetype = "dashed") +
       scale_fill_viridis_c(option = "magma") +
-      theme_fifi() +
+      theme_alba() +
       facet_wrap(~ name) +
       labs(title    = "Step 3: Puromycin gate on APC-A",
            subtitle = paste0("Dashed line = APC-A threshold (", puro_threshold, ")"),
@@ -571,7 +571,7 @@ server <- function(input, output, session) {
                  fill = genotype)) +
       geom_col() + coord_flip() +
       scale_fill_manual(values = g_cols, na.value = "grey80") +
-      theme_fifi() +
+      theme_alba() +
       labs(title    = "QC: Cells remaining after singlet + live gating",
            subtitle = "Samples ordered by retained live singlets; colored by genotype",
            x = "Sample", y = "# Live singlet cells", fill = "Genotype")
@@ -582,7 +582,7 @@ server <- function(input, output, session) {
                               y = mean_puro_live, fill = treatment)) +
       geom_col() + coord_flip() +
       scale_fill_manual(values = t_cols, na.value = "grey80") +
-      theme_fifi() +
+      theme_alba() +
       labs(title = "Mean puromycin signal (all live cells)",
            x = "Sample", y = "Mean APC-A", fill = "Treatment")
 
@@ -591,7 +591,7 @@ server <- function(input, output, session) {
                              y = mean_puro_pos, fill = treatment)) +
       geom_col() + coord_flip() +
       scale_fill_manual(values = t_cols, na.value = "grey80") +
-      theme_fifi() +
+      theme_alba() +
       labs(title = "Mean puromycin signal (puro+ cells only)",
            x = "Sample", y = "Mean APC-A (puro+)", fill = "Treatment")
 
@@ -642,7 +642,7 @@ server <- function(input, output, session) {
               label = paste0("4. FAO/AAO cap = ", round(fao_aao_capacity, 1), "%")),
           size = 4, inherit.aes = FALSE, color = "purple4"
         ) +
-        theme_fifi(14) +
+        theme_alba(14) +
         labs(title    = "Scenith parameters – Glucose dependence and FAO/AAO capacity",
              subtitle = "Densities pooled across replicates; arrows = distances between geometric means",
              x = "APC-A (log10)", y = "Density", fill = "Treatment")
@@ -688,7 +688,7 @@ server <- function(input, output, session) {
               label = paste0("3. Glyc cap = ", round(glycolytic_capacity, 1), "%")),
           size = 4, inherit.aes = FALSE
         ) +
-        theme_fifi(14) +
+        theme_alba(14) +
         labs(title    = "Scenith parameters – Mitochondrial dependence and glycolytic capacity",
              subtitle = "Densities pooled across replicates; arrows = distances between geometric means",
              x = "APC-A (log10)", y = "Density", fill = "Treatment")
@@ -706,7 +706,7 @@ server <- function(input, output, session) {
       geom_col(width = 0.7) +
       facet_wrap(~ genotype, ncol = 4) +
       scale_fill_manual(values = t_cols) +
-      theme_fifi(14) +
+      theme_alba(14) +
       labs(title    = "Translation per condition and genotype",
            subtitle = "Geometric mean APC-A (puromycin MFI) in live singlet cells",
            x = "Condition", y = "Geometric mean APC-A", fill = "Treatment")
