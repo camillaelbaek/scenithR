@@ -4,7 +4,7 @@
 pkgs <- c(
   "shiny", "dplyr", "tidyr", "ggplot2", "DT", "stringr", "purrr", "scales",
   "readr", "readxl",                          # metadata CSV / XLSX support
-  "flowCore", "flowViz", "ggcyto", "openCyto",
+  "flowCore", "flowViz", "ggcyto", "openCyto","magick", "imager",
   "ggridges", "ggpubr", "viridis", "ggbeeswarm", "sp"
 )
 
