@@ -1,0 +1,73 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+type: software
+title: "scenithR"
+abstract: >
+  A reproducible Shiny-based analysis pipeline for Scenith flow cytometry
+  assays. Provides sequential adjustable gating (singlets, live/dead, signal),
+  flexible panel and channel configuration, extended plate metadata support
+  (perturbation, treatment, time), and automatic derivation of Scenith
+  metabolic parameters (glucose dependence, FAO/AAO capacity, mitochondrial
+  dependence, glycolytic capacity).
+authors:
+  - given-names: "Camilla"       # fill in your full name
+    family-names: "Reiter Elbæk"             # fill in your family name
+    alias: celbaek
+    affiliation: "Centre for Genomic Regulation (CRG), Barcelona"
+repository-code: "https://github.com/camillaelbaek/scenithR"
+url: "https://github.com/camillaelbaek/scenithR"
+license: MIT
+keywords:
+  - flow cytometry
+  - Scenith
+  - metabolic profiling
+  - puromycin
+  - single-cell
+  - R
+  - Shiny
+version: "1.0.0"
+date-released: "2025-11-25"
+
+references:
+  - type: article
+    title: "SCENITH: A Flow Cytometry-Based Method to Functionally Profile Energy Metabolism with Single-Cell Resolution"
+    authors:
+      - family-names: "Argüello"
+        given-names: "Rafael J."
+      - family-names: "Combes"
+        given-names: "Anthony J."
+      - family-names: "Char"
+        given-names: "Rose"
+      - family-names: "Gigan"
+        given-names: "Jean-Paul"
+      - family-names: "Baaziz"
+        given-names: "Amine I."
+      - family-names: "Bousiquot"
+        given-names: "Emeline"
+      - family-names: "Camosseto"
+        given-names: "Voahirana"
+      - family-names: "Samad"
+        given-names: "Bushra"
+      - family-names: "Tsui"
+        given-names: "Jessica"
+      - family-names: "Yan"
+        given-names: "Peipei"
+      - family-names: "Boissonneau"
+        given-names: "Sébastien"
+      - family-names: "Figarella-Branger"
+        given-names: "Dominique"
+      - family-names: "Gatti"
+        given-names: "Evelina"
+      - family-names: "Janssen"
+        given-names: "Erin"
+      - family-names: "Krummel"
+        given-names: "Matthew F."
+      - family-names: "Pierre"
+        given-names: "Philippe"
+    journal: "Cell Metabolism"
+    year: 2020
+    volume: 32
+    issue: 6
+    start: 1063
+    doi: "10.1016/j.cmet.2020.11.007"
+    pmcid: "PMC8407169"
