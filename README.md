@@ -193,7 +193,17 @@ Ensure R ≥ 4.2 and try `BiocManager::install(...)` manually (see above).
 
 ## Citation
 
-If you use this pipeline, please cite the original Scenith method:
+### Citing this software
+
+A `CITATION.cff` file is included in the root of this repository. GitHub surfaces it automatically as a **"Cite this repository"** button in the sidebar — click it to export a ready-made citation in APA, BibTeX, or other formats.
+
+To cite manually:
+
+> Elbaek C. (2025). *scenithR: a Shiny-based analysis pipeline for Scenith flow cytometry assays* (Version 1.0.0). GitHub. https://github.com/camillaelbaek/scenithR
+
+### Citing the Scenith method
+
+If you use the metabolic profiling approach, please also cite the original method paper:
 
 Argüello RJ, Combes AJ, Char R, Gigan JP, Baaziz AI, Bousiquot E, Camosseto V, Samad B, Tsui J, Yan P, Boissonneau S, Figarella-Branger D, Gatti E, Janssen E, Krummel MF, Pierre P.
 **SCENITH: A Flow Cytometry-Based Method to Functionally Profile Energy Metabolism with Single-Cell Resolution.**
