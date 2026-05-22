@@ -6,6 +6,9 @@
 </p>
 
 ---
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![R Shiny](https://img.shields.io/badge/Built%20with-R%20Shiny-blue.svg)](https://shiny.posit.co/)
+[![Platform](https://img.shields.io/badge/Platform-Mac%20%7C%20Windows-lightgrey.svg)]()
 
 ## Quick start
 
