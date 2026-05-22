@@ -199,7 +199,7 @@ A `CITATION.cff` file is included in the root of this repository. GitHub surface
 
 To cite manually:
 
-> Elbaek C. (2025). *scenithR: a Shiny-based analysis pipeline for Scenith flow cytometry assays* (Version 1.0.0). GitHub. https://github.com/camillaelbaek/scenithR
+> Elbaek CR. (2025). *scenithR: a Shiny-based analysis pipeline for Scenith flow cytometry assays* (Version 1.0.0). GitHub. https://github.com/camillaelbaek/scenithR
 
 ### Citing the Scenith method
 
