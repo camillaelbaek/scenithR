@@ -22,8 +22,6 @@ suppressPackageStartupMessages({
 })
 
 # ── Panel presets ──────────────────────────────────────────────────────────────
-# Each entry defines the four channel roles used throughout the analysis.
-# live_dead = NULL means no live/dead gating step.
 PANEL_PRESETS <- list(
   "Scenith – APC (puromycin) / FITC (live-dead)"  = list(scatter_x="FSC.A", scatter_y="FSC.H", live_dead="FITC.A",  signal="APC.A"),
   "Scenith – APC (puromycin) / BV421 (live-dead)" = list(scatter_x="FSC.A", scatter_y="FSC.H", live_dead="BV421.A", signal="APC.A"),
@@ -71,6 +69,7 @@ geomfi        <- function(x) { x <- x[x > 0]; exp(mean(log(x), na.rm=TRUE)) }
 save_plot_png <- function(p, f, w=7, h=5) ggsave(f, p, width=w, height=h, dpi=300, units="in")
 empty_gg      <- function(msg) ggplot() + annotate("text", x=.5, y=.5, label=msg, size=4.5, colour="grey50") + theme_void()
 
+# as.numeric() cast prevents "expected double, got integer" from numericInput
 make_singlet_gate <- function(x1, y1, x2, y2, x3, y3, x4, y4, xchan, ychan) {
   m <- matrix(as.numeric(c(x1,y1, x2,y2, x3,y3, x4,y4)), ncol=2, byrow=TRUE)
   colnames(m) <- c(xchan, ychan)
@@ -154,7 +153,14 @@ ui <- fluidPage(
           hr(),
           h4("FCS ↔ metadata coverage"),
           tags$p(class="small-note", "Green = matched, red = unmatched."),
-          DTOutput("coverage_tbl")
+          DTOutput("coverage_tbl"),
+          hr(),
+          h4("Perturbation overview"),
+          tags$p(class="small-note",
+                 "Well counts per perturbation, broken down by available grouping variables."),
+          plotOutput("p_perturbation_dist", height="320px"),
+          hr(),
+          DTOutput("perturbation_count_tbl")
         ),
 
         # ── Channels ────────────────────────────────────────────────────────────
@@ -168,11 +174,11 @@ ui <- fluidPage(
               selectInput("preset", "Panel preset",
                           choices = names(PANEL_PRESETS), width="100%"),
               hr(),
-              conditionalPanel("input.preset == 'Custom – configure below'",
+              conditionalPanel("input.preset == 'Custom \u2013 configure below'",
                 h5("Custom channel assignment"),
                 uiOutput("custom_channel_ui")
               ),
-              conditionalPanel("input.preset != 'Custom – configure below'",
+              conditionalPanel("input.preset != 'Custom \u2013 configure below'",
                 uiOutput("preset_channel_summary")
               ),
               hr(),
@@ -255,7 +261,7 @@ ui <- fluidPage(
           fluidRow(
             column(4,
               h5("Signal threshold"),
-              numericInput("g3_threshold", "Keep cells ≥", value=80, min=0, step=10, width="100%"),
+              numericInput("g3_threshold", "Keep cells \u2265", value=80, min=0, step=10, width="100%"),
               hr(),
               h5("Preview samples"),
               uiOutput("g3_sample_ui"),
@@ -300,7 +306,7 @@ ui <- fluidPage(
           plotOutput("p_co_o_dgo", height=650),
           downloadButton("dl_co_o_dgo", "Download PNG"),
           hr(),
-          h4("Geometric mean signal per genotype × perturbation"),
+          h4("Geometric mean signal per genotype \u00d7 perturbation"),
           plotOutput("p_puro_bar", height=420),
           downloadButton("dl_puro_bar", "Download PNG")
         )
@@ -335,13 +341,13 @@ server <- function(input, output, session) {
       df     <- meta_df()
       extras <- setdiff(colnames(df), c("well_code","genotype","perturbation"))
       tags$div(class="tag-box",
-        tags$span(class="ok", paste0("✓ ", nrow(df), " wells loaded")), br(),
+        tags$span(class="ok", paste0("\u2713 ", nrow(df), " wells loaded")), br(),
         tags$span("Genotypes: ",    tags$b(paste(sort(unique(na.omit(df$genotype))),     collapse=", "))), br(),
         tags$span("Perturbations: ",tags$b(paste(sort(unique(na.omit(df$perturbation))), collapse=", "))),
         if ("treatment" %in% extras) tagList(br(), tags$span("Treatments: ", tags$b(paste(sort(unique(na.omit(df$treatment))), collapse=", ")))),
         if ("time"      %in% extras) tagList(br(), tags$span("Timepoints: ", tags$b(paste(sort(unique(na.omit(df$time))),      collapse=", "))))
       )
-    }, error = function(e) tags$p(class="busy", "⚠ Metadata error — check column names."))
+    }, error = function(e) tags$p(class="busy", "\u26a0 Metadata error \u2014 check column names."))
   })
 
   output$dl_template <- downloadHandler(
@@ -362,7 +368,7 @@ server <- function(input, output, session) {
   # ── FCS loading ───────────────────────────────────────────────────────────────
   fcs_raw <- reactive({
     req(input$fcs_files)
-    withProgress(message="Loading FCS files…", {
+    withProgress(message="Loading FCS files\u2026", {
       fs <- read.flowSet(files=input$fcs_files$datapath,
                          alter.names=TRUE, truncate_max_range=FALSE)
       sampleNames(fs) <- input$fcs_files$name
@@ -376,17 +382,10 @@ server <- function(input, output, session) {
   })
 
   # ── Channel configuration ─────────────────────────────────────────────────────
-  # channel_cfg() returns list(scatter_x, scatter_y, live_dead, signal)
-  # live_dead may be NULL (skip live gating)
-
   channel_cfg <- reactive({
     preset_name <- req(input$preset)
     preset      <- PANEL_PRESETS[[preset_name]]
-
-    if (preset_name != "Custom – configure below") {
-      return(preset)
-    }
-    # Custom mode — read from dynamically-created inputs (default to FSC.A etc. if not yet rendered)
+    if (preset_name != "Custom \u2013 configure below") return(preset)
     list(
       scatter_x = if (!is.null(input$ch_scatter_x)) input$ch_scatter_x else "FSC.A",
       scatter_y = if (!is.null(input$ch_scatter_y)) input$ch_scatter_y else "FSC.H",
@@ -409,7 +408,7 @@ server <- function(input, output, session) {
     cfg <- PANEL_PRESETS[[input$preset]]
     if (is.null(cfg)) return(NULL)
     tags$div(class="tag-box",
-      tags$span(class="ok", "✓ Preset channels:"), br(),
+      tags$span(class="ok", "\u2713 Preset channels:"), br(),
       tags$span("Scatter X: ",  tags$b(cfg$scatter_x)), br(),
       tags$span("Scatter Y: ",  tags$b(cfg$scatter_y)), br(),
       tags$span("Live/Dead: ",  tags$b(if(is.null(cfg$live_dead)) "None" else cfg$live_dead)), br(),
@@ -418,9 +417,8 @@ server <- function(input, output, session) {
   })
 
   output$channel_list_ui <- renderUI({
-    if (is.null(input$fcs_files)) {
+    if (is.null(input$fcs_files))
       return(tags$p(class="small-note", "Upload FCS files to see available channels."))
-    }
     chs <- avail_channels()
     tags$div(class="tag-box",
       tags$b(paste0(length(chs), " channels detected:")), br(),
@@ -428,7 +426,6 @@ server <- function(input, output, session) {
     )
   })
 
-  # Optional panel CSV display
   output$panel_tbl_ui <- renderUI({
     if (is.null(input$panel_file)) return(NULL)
     df <- tryCatch(readr::read_csv(input$panel_file$datapath, show_col_types=FALSE), error=function(e) NULL)
@@ -437,7 +434,6 @@ server <- function(input, output, session) {
   })
 
   # ── Gating helpers ─────────────────────────────────────────────────────────────
-  # Build gates from current inputs (cheap, always up-to-date for previews)
   cur_singlet_gate <- reactive({
     cfg <- channel_cfg()
     req(cfg$scatter_x, cfg$scatter_y)
@@ -478,9 +474,9 @@ server <- function(input, output, session) {
   # ── Gate 1 preview ────────────────────────────────────────────────────────────
   output$p_g1_preview <- renderPlot({
     req(fcs_raw(), input$g1_sample)
-    cfg  <- channel_cfg(); req(cfg$scatter_x, cfg$scatter_y)
-    pg   <- cur_singlet_gate()
-    idx  <- which(sampleNames(fcs_raw()) == input$g1_sample)
+    cfg <- channel_cfg(); req(cfg$scatter_x, cfg$scatter_y)
+    pg  <- cur_singlet_gate()
+    idx <- which(sampleNames(fcs_raw()) == input$g1_sample)
     if (!length(idx)) return(empty_gg("Sample not found."))
     ggcyto(fcs_raw()[idx], aes_string(x=cfg$scatter_x, y=cfg$scatter_y)) +
       geom_hex(bins=60) +
@@ -503,9 +499,9 @@ server <- function(input, output, session) {
       n_raw  <- nrow(exprs(fcs_raw()[[idx]]))
       n_keep <- nrow(exprs(fs_sub[[1]]))
       tags$div(class="tag-box",
-        tags$span(paste0("Raw events: ",     n_raw)),  br(),
-        tags$span(paste0("After gate: ",     n_keep)), br(),
-        tags$span(paste0("Retained: ",       round(100*n_keep/n_raw, 1), "%"))
+        tags$span(paste0("Raw events: ",  n_raw)),  br(),
+        tags$span(paste0("After gate: ",  n_keep)), br(),
+        tags$span(paste0("Retained: ",    round(100*n_keep/n_raw, 1), "%"))
       )
     }, error = function(e) tags$p(class="small-note", "Run FCS upload to see stats."))
   })
@@ -515,15 +511,14 @@ server <- function(input, output, session) {
     cfg <- channel_cfg()
     if (is.null(cfg$live_dead)) {
       return(tags$div(style="margin-top:20px;",
-        tags$p(class="ok", "✓ No live/dead channel configured — this step is skipped."),
-        tags$p(class="small-note",
-               "To enable live/dead gating, select a channel in the Channels tab.")))
+        tags$p(class="ok", "\u2713 No live/dead channel configured \u2014 this step is skipped."),
+        tags$p(class="small-note", "To enable, select a channel in the Channels tab.")))
     }
     fluidRow(
       column(4,
         h5("Live/Dead threshold"),
         tags$p(class="small-note",
-               paste0("Channel: ", tags$b(cfg$live_dead),
+               paste0("Channel: ", cfg$live_dead,
                       ". Cells BELOW the threshold are kept as live.")),
         numericInput("g2_threshold",
                      paste0("Keep cells < (", cfg$live_dead, ")"),
@@ -544,7 +539,7 @@ server <- function(input, output, session) {
   output$p_g2_preview <- renderPlot({
     cfg <- channel_cfg()
     if (is.null(cfg$live_dead)) return(invisible(NULL))
-    req(fcs_raw(), input$g1_sample, input$g2_sample, input$g2_threshold)
+    req(fcs_raw(), input$g2_sample, input$g2_threshold)
     pg  <- cur_singlet_gate()
     idx <- which(sampleNames(fcs_raw()) == input$g2_sample)
     if (!length(idx)) return(empty_gg("Sample not found."))
@@ -567,16 +562,16 @@ server <- function(input, output, session) {
     cfg <- channel_cfg()
     if (is.null(cfg$live_dead) || is.null(input$g2_sample) || is.null(input$g2_threshold)) return(NULL)
     tryCatch({
-      pg  <- cur_singlet_gate()
-      idx <- which(sampleNames(fcs_raw()) == input$g2_sample)
+      pg      <- cur_singlet_gate()
+      idx     <- which(sampleNames(fcs_raw()) == input$g2_sample)
       fs_sing <- Subset(fcs_raw()[idx], pg)
       lg      <- make_thresh_gate(cfg$live_dead, hi=input$g2_threshold, id="Live")
       fs_live <- Subset(fs_sing, lg)
       n_sing  <- nrow(exprs(fs_sing[[1]]))
       n_live  <- nrow(exprs(fs_live[[1]]))
       tags$div(class="tag-box",
-        tags$span(paste0("After singlet gate: ",  n_sing)), br(),
-        tags$span(paste0("After live gate: ",     n_live)), br(),
+        tags$span(paste0("After singlet gate: ", n_sing)), br(),
+        tags$span(paste0("After live gate: ",    n_live)), br(),
         tags$span(paste0("Retained: ", round(100*n_live/n_sing, 1), "%"))
       )
     }, error=function(e) tags$p(class="small-note", "Preview not yet available."))
@@ -604,7 +599,7 @@ server <- function(input, output, session) {
       facet_wrap(~ name) +
       theme_alba() +
       labs(title    = "Signal gate preview",
-           subtitle = paste0("Dashed line = threshold (", cfg$signal, " ≥ ", thresh, ")"),
+           subtitle = paste0("Dashed line = threshold (", cfg$signal, " \u2265 ", thresh, ")"),
            x=cfg$scatter_x, y=paste0(cfg$signal, " (log10)"), fill="Count")
   })
 
@@ -612,17 +607,17 @@ server <- function(input, output, session) {
     cfg <- channel_cfg()
     if (is.null(cfg$signal) || is.null(input$g3_samples) || !length(input$g3_samples)) return(NULL)
     tryCatch({
-      pg  <- cur_singlet_gate()
-      idx <- which(sampleNames(fcs_raw()) == input$g3_samples[1])
+      pg      <- cur_singlet_gate()
+      idx     <- which(sampleNames(fcs_raw()) == input$g3_samples[1])
       fs_sing <- Subset(fcs_raw()[idx], pg)
       fs_live <- if (!is.null(cfg$live_dead) && !is.null(input$g2_threshold)) {
         lg <- make_thresh_gate(cfg$live_dead, hi=input$g2_threshold, id="Live")
         tryCatch(Subset(fs_sing, lg), error=function(e) fs_sing)
       } else fs_sing
-      sg      <- make_thresh_gate(cfg$signal, lo=input$g3_threshold, id="Signal")
-      fs_sig  <- tryCatch(Subset(fs_live, sg), error=function(e) NULL)
-      n_live  <- nrow(exprs(fs_live[[1]]))
-      n_sig   <- if (!is.null(fs_sig)) nrow(exprs(fs_sig[[1]])) else NA
+      sg     <- make_thresh_gate(cfg$signal, lo=input$g3_threshold, id="Signal")
+      fs_sig <- tryCatch(Subset(fs_live, sg), error=function(e) NULL)
+      n_live <- nrow(exprs(fs_live[[1]]))
+      n_sig  <- if (!is.null(fs_sig)) nrow(exprs(fs_sig[[1]])) else NA
       tags$div(class="tag-box",
         tags$span(paste0("After live gate (sample 1): ", n_live)), br(),
         tags$span(paste0("After signal gate: ",          n_sig)),  br(),
@@ -639,11 +634,11 @@ server <- function(input, output, session) {
     validate(need(!is.null(cfg$scatter_x), "Configure channels before running."))
     validate(need(!is.null(cfg$signal),    "Signal channel not configured."))
 
-    withProgress(message="Running analysis…", value=0, {
+    withProgress(message="Running analysis\u2026", value=0, {
 
-      setProgress(.1, detail="Applying gates…")
-      fs  <- fcs_raw()
-      pg  <- cur_singlet_gate()
+      setProgress(.1, detail="Applying gates\u2026")
+      fs      <- fcs_raw()
+      pg      <- cur_singlet_gate()
       fs_sing <- Subset(fs, pg)
 
       fs_live <- if (!is.null(cfg$live_dead) && !is.null(input$g2_threshold)) {
@@ -651,19 +646,17 @@ server <- function(input, output, session) {
         Subset(fs_sing, lg)
       } else fs_sing
 
-      sg      <- make_thresh_gate(cfg$signal, lo=input$g3_threshold, id="Signal")
-      fs_sig  <- Subset(fs_live, sg)
+      sg     <- make_thresh_gate(cfg$signal, lo=input$g3_threshold, id="Signal")
+      fs_sig <- Subset(fs_live, sg)
 
-      # Sample map
       sample_map <- tibble(sample=sampleNames(fs)) %>%
         mutate(well_code = normalize_well_code(str_extract(sample, "[A-H]\\d{1,2}"))) %>%
         left_join(meta, by="well_code")
 
-      # Dynamic palettes
       p_cols <- auto_palette(meta$perturbation, perturbation_cols_default)
       g_cols <- auto_palette(meta$genotype,     genotype_cols_default)
 
-      setProgress(.3, detail="Building cell counts…")
+      setProgress(.3, detail="Building cell counts\u2026")
       cell_counts <- tibble(
         sample         = sampleNames(fs),
         n_raw          = map_int(seq_along(fs),      ~ nrow(exprs(fs[[.x]]))),
@@ -671,7 +664,7 @@ server <- function(input, output, session) {
         n_live_singlet = map_int(seq_along(fs_live), ~ nrow(exprs(fs_live[[.x]])))
       ) %>% left_join(sample_map, by="sample")
 
-      setProgress(.5, detail="Summarising signal…")
+      setProgress(.5, detail="Summarising signal\u2026")
       puro_summary <- map_df(seq_along(sampleNames(fs_live)), function(i) {
         ff_live <- fs_live[[i]]
         ff_sig  <- fs_sig[[i]]
@@ -686,7 +679,7 @@ server <- function(input, output, session) {
         )
       }) %>% left_join(sample_map, by="sample")
 
-      setProgress(.65, detail="Building cell-level frame…")
+      setProgress(.65, detail="Building cell-level frame\u2026")
       sig_thresh   <- input$g3_threshold
       genotype_lvl <- sort(unique(na.omit(meta$genotype)))
 
@@ -698,14 +691,13 @@ server <- function(input, output, session) {
         mutate(genotype = factor(genotype, levels=genotype_lvl)) %>%
         filter(.data[[cfg$signal]] >= sig_thresh)
 
-      # Determine grouping variables
       grp_vars <- "genotype"
       if ("treatment" %in% colnames(meta) &&
           n_distinct(na.omit(meta$treatment)) > 1) grp_vars <- c(grp_vars, "treatment")
       if ("time"      %in% colnames(meta) &&
           n_distinct(na.omit(meta$time))      > 1) grp_vars <- c(grp_vars, "time")
 
-      setProgress(.8, detail="Computing Scenith parameters…")
+      setProgress(.8, detail="Computing Scenith parameters\u2026")
       geo_means <- cell_filtered %>%
         mutate(genotype = factor(genotype, levels=genotype_lvl)) %>%
         filter(perturbation %in% c("Co","DG","O","DGO")) %>%
@@ -718,13 +710,15 @@ server <- function(input, output, session) {
       scenith_dg <- if (has_dg) {
         geo_means %>% filter(perturbation %in% c("Co","DG","DGO")) %>%
           pivot_wider(names_from=perturbation, values_from=geo_mean) %>%
-          mutate(glucose_dependence = 100*((Co-DG)/(Co-DGO)), fao_aao_capacity = 100-glucose_dependence)
+          mutate(glucose_dependence = 100*((Co-DG)/(Co-DGO)),
+                 fao_aao_capacity   = 100-glucose_dependence)
       } else NULL
 
       scenith_o <- if (has_o) {
         geo_means %>% filter(perturbation %in% c("Co","O","DGO")) %>%
           pivot_wider(names_from=perturbation, values_from=geo_mean) %>%
-          mutate(mito_dependence = 100*((Co-O)/(Co-DGO)), glycolytic_capacity = 100-mito_dependence)
+          mutate(mito_dependence     = 100*((Co-O)/(Co-DGO)),
+                 glycolytic_capacity = 100-mito_dependence)
       } else NULL
 
       scenith_summary <- if (!is.null(scenith_dg) && !is.null(scenith_o)) {
@@ -733,9 +727,8 @@ server <- function(input, output, session) {
                  Co_o, O, DGO_o, mito_dependence, glycolytic_capacity)
       } else tibble(note="Co, DG, O and DGO perturbations required for Scenith parameters.")
 
-      setProgress(.9, detail="Building plots…")
+      setProgress(.9, detail="Building plots\u2026")
 
-      # ── QC plots ──────────────────────────────────────────────────────────────
       p_cell_counts <- cell_counts %>%
         ggplot(aes(x=reorder(sample, n_live_singlet), y=n_live_singlet, fill=genotype)) +
         geom_col() + coord_flip() +
@@ -748,122 +741,116 @@ server <- function(input, output, session) {
                                y=mean_signal_all, fill=perturbation)) +
         geom_col() + coord_flip() +
         scale_fill_manual(values=p_cols, na.value="grey80") + theme_alba() +
-        labs(title="Mean signal – all live cells", x="Sample",
-             y=paste0("Mean ", cfg$signal), fill="Perturbation")
+        labs(title="Mean signal \u2013 all live cells",
+             x="Sample", y=paste0("Mean ", cfg$signal), fill="Perturbation")
 
       p_mean_pos <- ggplot(puro_summary,
                            aes(x=reorder(sample, mean_signal_pos),
                                y=mean_signal_pos, fill=perturbation)) +
         geom_col() + coord_flip() +
         scale_fill_manual(values=p_cols, na.value="grey80") + theme_alba() +
-        labs(title="Mean signal – signal-positive cells", x="Sample",
-             y=paste0("Mean ", cfg$signal, " (signal+)"), fill="Perturbation")
+        labs(title="Mean signal \u2013 signal-positive cells",
+             x="Sample", y=paste0("Mean ", cfg$signal, " (signal+)"), fill="Perturbation")
 
       p_mean_both <- ggpubr::ggarrange(p_mean_all, p_mean_pos, ncol=1)
 
-      # Scenith density plots
-      make_density_plot <- function(perturbs, params_df, arrow_pairs, title_str) {
-        if (is.null(params_df)) return(empty_gg(paste("Missing perturbations:", paste(perturbs, collapse=", "))))
-        base <- cell_filtered %>% filter(perturbation %in% perturbs) %>%
-          ggplot(aes_string(x=cfg$signal, fill="perturbation")) +
-          geom_density(alpha=.6, aes(color=perturbation)) +
-          scale_x_log10(limits=c(1,10e6)) +
-          facet_wrap(~ genotype, ncol=2) +
-          scale_fill_manual(values=p_cols) +
-          scale_colour_manual(values=p_cols, guide="none") +
-          geom_vline(
-            data=geo_means %>% filter(perturbation %in% perturbs),
-            aes(xintercept=geo_mean, colour=perturbation),
-            linetype="dashed", linewidth=.6, inherit.aes=FALSE, show.legend=FALSE
-          ) + theme_alba(14) +
-          labs(title=title_str,
-               subtitle="Densities pooled across replicates; dashed = geometric mean",
-               x=paste0(cfg$signal, " (log10)"), y="Density", fill="Perturbation")
-        # Add arrows for each pair defined in the params_df
-        for (ap in arrow_pairs) {
-          base <- base +
-            geom_segment(data=params_df,
-                         aes_string(x=ap$from, xend=ap$to, y=ap$y, yend=ap$y),
-                         arrow=arrow(length=unit(.15,"cm")),
-                         colour=ap$col, inherit.aes=FALSE) +
-            geom_label(data=params_df,
-                       aes_string(x=paste0("(", ap$from, "+", ap$to, ")/", ap$divisor),
-                                  y=ap$ly, label=paste0("'", ap$label_prefix, " = ', round(", ap$param, ",1), '%'")),
-                       parse=FALSE, size=3.5, colour=ap$col, inherit.aes=FALSE)
-        }
-        base
-      }
-
-      # Build the two Scenith plots more directly
+      # ── Scenith density plots ──────────────────────────────────────────────────
       p_co_dg_dgo <- if (!is.null(scenith_dg)) {
-        cell_filtered %>% filter(perturbation %in% c("Co","DG","DGO")) %>%
-          ggplot(aes_string(x=cfg$signal, fill="perturbation")) +
-          geom_density(alpha=.6, aes(color=perturbation)) +
-          scale_x_log10(limits=c(1,10e6)) +
-          facet_wrap(~ genotype, ncol=2) +
-          scale_fill_manual(values=p_cols) +
-          scale_colour_manual(values=p_cols, guide="none") +
-          geom_vline(data=geo_means %>% filter(perturbation %in% c("Co","DG","DGO")),
-                     aes(xintercept=geo_mean, colour=perturbation),
-                     linetype="dashed", linewidth=.6, inherit.aes=FALSE, show.legend=FALSE) +
-          geom_segment(data=scenith_dg, aes(x=DG, xend=Co, y=.5, yend=.5),
-                       arrow=arrow(length=unit(.15,"cm")), inherit.aes=FALSE) +
-          geom_label(data=scenith_dg,
-                     aes(x=(DG+Co)/.8, y=.2,
-                         label=paste0("1. Glc dep = ",round(glucose_dependence,1),"%")),
-                     size=3.5, inherit.aes=FALSE) +
-          geom_segment(data=scenith_dg, aes(x=DGO, xend=DG, y=1, yend=1),
-                       arrow=arrow(length=unit(.15,"cm")),
-                       inherit.aes=FALSE, colour="purple4") +
-          geom_label(data=scenith_dg,
-                     aes(x=(DGO+DG)/8, y=.8,
-                         label=paste0("4. FAO/AAO cap = ",round(fao_aao_capacity,1),"%")),
-                     size=3.5, inherit.aes=FALSE, colour="purple4") +
-          theme_alba(14) +
-          labs(title="Glucose dependence and FAO/AAO capacity",
-               subtitle="Co vs DG vs DGO; arrows = distances between geometric means",
-               x=paste0(cfg$signal," (log10)"), y="Density", fill="Perturbation")
+        tryCatch({
+          cell_filtered %>% filter(perturbation %in% c("Co","DG","DGO")) %>%
+            ggplot(aes(x=.data[[cfg$signal]], fill=perturbation)) +
+            geom_density(alpha=.6, aes(color=perturbation)) +
+            scale_x_log10(limits=c(1,10e6)) +
+            facet_wrap(~ genotype, ncol=2) +
+            scale_fill_manual(values=p_cols) +
+            scale_colour_manual(values=p_cols, guide="none") +
+            geom_vline(
+              data        = geo_means %>% filter(perturbation %in% c("Co","DG","DGO")),
+              aes(xintercept=geo_mean, colour=perturbation),
+              linetype="dashed", linewidth=.6, inherit.aes=FALSE, show.legend=FALSE
+            ) +
+            geom_segment(
+              data        = scenith_dg %>% filter(is.finite(glucose_dependence)),
+              aes(x=DG, xend=Co, y=.5, yend=.5),
+              arrow=arrow(length=unit(.15,"cm")), inherit.aes=FALSE
+            ) +
+            geom_label(
+              data        = scenith_dg %>% filter(is.finite(glucose_dependence)),
+              aes(x=exp((log(DG)+log(Co))/2), y=.2,
+                  label=paste0("1. Glc dep = ",round(glucose_dependence,1),"%")),
+              size=3.5, inherit.aes=FALSE
+            ) +
+            geom_segment(
+              data        = scenith_dg %>% filter(is.finite(fao_aao_capacity)),
+              aes(x=DGO, xend=DG, y=1, yend=1),
+              arrow=arrow(length=unit(.15,"cm")),
+              inherit.aes=FALSE, colour="purple4"
+            ) +
+            geom_label(
+              data        = scenith_dg %>% filter(is.finite(fao_aao_capacity)),
+              aes(x=exp((log(DGO)+log(DG))/2), y=.8,
+                  label=paste0("4. FAO/AAO cap = ",round(fao_aao_capacity,1),"%")),
+              size=3.5, inherit.aes=FALSE, colour="purple4"
+            ) +
+            theme_alba(14) +
+            labs(title    = "Glucose dependence and FAO/AAO capacity",
+                 subtitle = "Co vs DG vs DGO; arrows = distances between geometric means",
+                 x=paste0(cfg$signal," (log10)"), y="Density", fill="Perturbation")
+        }, error=function(e) empty_gg(paste("Plot error:", conditionMessage(e))))
       } else empty_gg("Co, DG and DGO perturbations required.")
 
       p_co_o_dgo <- if (!is.null(scenith_o)) {
-        cell_filtered %>% filter(perturbation %in% c("Co","O","DGO")) %>%
-          ggplot(aes_string(x=cfg$signal, fill="perturbation")) +
-          geom_density(alpha=.6, aes(color=perturbation)) +
-          scale_x_log10(limits=c(1,10e6)) +
-          facet_wrap(~ genotype, ncol=2) +
-          scale_fill_manual(values=p_cols) +
-          scale_colour_manual(values=p_cols, guide="none") +
-          geom_vline(data=geo_means %>% filter(perturbation %in% c("Co","O","DGO")),
-                     aes(xintercept=geo_mean, colour=perturbation),
-                     linetype="dashed", linewidth=.6, inherit.aes=FALSE, show.legend=FALSE) +
-          geom_segment(data=scenith_o, aes(x=O, xend=Co, y=.5, yend=.5),
-                       arrow=arrow(length=unit(.15,"cm")),
-                       inherit.aes=FALSE, colour="blue") +
-          geom_label(data=scenith_o,
-                     aes(x=(O+Co)/.8, y=.2,
-                         label=paste0("2. Mito dep = ",round(mito_dependence,1),"%")),
-                     size=3.5, inherit.aes=FALSE, colour="blue") +
-          geom_segment(data=scenith_o, aes(x=DGO, xend=O, y=1, yend=1),
-                       arrow=arrow(length=unit(.15,"cm")), inherit.aes=FALSE) +
-          geom_label(data=scenith_o,
-                     aes(x=(DGO+O)/5, y=.8,
-                         label=paste0("3. Glyc cap = ",round(glycolytic_capacity,1),"%")),
-                     size=3.5, inherit.aes=FALSE) +
-          theme_alba(14) +
-          labs(title="Mitochondrial dependence and glycolytic capacity",
-               subtitle="Co vs O vs DGO; arrows = distances between geometric means",
-               x=paste0(cfg$signal," (log10)"), y="Density", fill="Perturbation")
+        tryCatch({
+          cell_filtered %>% filter(perturbation %in% c("Co","O","DGO")) %>%
+            ggplot(aes(x=.data[[cfg$signal]], fill=perturbation)) +
+            geom_density(alpha=.6, aes(color=perturbation)) +
+            scale_x_log10(limits=c(1,10e6)) +
+            facet_wrap(~ genotype, ncol=2) +
+            scale_fill_manual(values=p_cols) +
+            scale_colour_manual(values=p_cols, guide="none") +
+            geom_vline(
+              data        = geo_means %>% filter(perturbation %in% c("Co","O","DGO")),
+              aes(xintercept=geo_mean, colour=perturbation),
+              linetype="dashed", linewidth=.6, inherit.aes=FALSE, show.legend=FALSE
+            ) +
+            geom_segment(
+              data        = scenith_o %>% filter(is.finite(mito_dependence)),
+              aes(x=O, xend=Co, y=.5, yend=.5),
+              arrow=arrow(length=unit(.15,"cm")),
+              inherit.aes=FALSE, colour="blue"
+            ) +
+            geom_label(
+              data        = scenith_o %>% filter(is.finite(mito_dependence)),
+              aes(x=exp((log(O)+log(Co))/2), y=.2,
+                  label=paste0("2. Mito dep = ",round(mito_dependence,1),"%")),
+              size=3.5, inherit.aes=FALSE, colour="blue"
+            ) +
+            geom_segment(
+              data        = scenith_o %>% filter(is.finite(glycolytic_capacity)),
+              aes(x=DGO, xend=O, y=1, yend=1),
+              arrow=arrow(length=unit(.15,"cm")), inherit.aes=FALSE
+            ) +
+            geom_label(
+              data        = scenith_o %>% filter(is.finite(glycolytic_capacity)),
+              aes(x=exp((log(DGO)+log(O))/2), y=.8,
+                  label=paste0("3. Glyc cap = ",round(glycolytic_capacity,1),"%")),
+              size=3.5, inherit.aes=FALSE
+            ) +
+            theme_alba(14) +
+            labs(title    = "Mitochondrial dependence and glycolytic capacity",
+                 subtitle = "Co vs O vs DGO; arrows = distances between geometric means",
+                 x=paste0(cfg$signal," (log10)"), y="Density", fill="Perturbation")
+        }, error=function(e) empty_gg(paste("Plot error:", conditionMessage(e))))
       } else empty_gg("Co, O and DGO perturbations required.")
 
       bar_data <- geo_means %>%
         filter(perturbation %in% c("Co","DG","O","DGO")) %>%
         mutate(perturbation=factor(perturbation, levels=c("Co","DG","O","DGO")))
 
-      # Facet formula: always genotype; add treatment/time if present
       facet_vars <- intersect(c("treatment","time"), grp_vars)
-      facet_f <- if (length(facet_vars)) {
+      facet_f    <- if (length(facet_vars))
         as.formula(paste("~", paste(c("genotype", facet_vars), collapse=" + ")))
-      } else ~ genotype
+      else ~ genotype
 
       p_puro_bar <- ggplot(bar_data, aes(x=perturbation, y=geo_mean, fill=perturbation)) +
         geom_col(width=.7) +
@@ -892,24 +879,22 @@ server <- function(input, output, session) {
   output$status_box <- renderUI({
     n_fcs    <- if (!is.null(input$fcs_files)) nrow(input$fcs_files) else 0L
     has_meta <- !is.null(input$meta_file)
-    items <- tagList(
-      tags$li(if (n_fcs>0) tags$span(class="ok", paste0("✓ ", n_fcs, " FCS files loaded"))
-              else tags$span(class="busy", "⬆ Upload FCS files")),
-      tags$li(if (has_meta) tags$span(class="ok", "✓ Metadata loaded")
-              else tags$span(class="busy", "⬆ Upload metadata")),
+    tags$ul(
+      tags$li(if (n_fcs>0) tags$span(class="ok",   paste0("\u2713 ", n_fcs, " FCS files loaded"))
+              else         tags$span(class="busy",  "\u2b06 Upload FCS files")),
+      tags$li(if (has_meta) tags$span(class="ok",  "\u2713 Metadata loaded")
+              else          tags$span(class="busy", "\u2b06 Upload metadata")),
       tags$li(tags$span(class="small-note", paste0("Panel: ", input$preset))),
       tags$li(tags$span(class="small-note",
-                paste0("Singlet gate vertices: (",
+                paste0("Singlet vertices: (",
                        paste(c(input$g1_x1,input$g1_y1,input$g1_x2,input$g1_y2,
                                input$g1_x3,input$g1_y3,input$g1_x4,input$g1_y4),
                              collapse=", "), ")"))),
       tags$li(tags$span(class="small-note",
                 paste0("Live/Dead threshold: ",
                        if (!is.null(input$g2_threshold)) input$g2_threshold else "n/a"))),
-      tags$li(tags$span(class="small-note",
-                paste0("Signal threshold: ", input$g3_threshold)))
+      tags$li(tags$span(class="small-note", paste0("Signal threshold: ", input$g3_threshold)))
     )
-    tags$ul(items)
   })
 
   # ── Metadata tab outputs ──────────────────────────────────────────────────────
@@ -917,6 +902,7 @@ server <- function(input, output, session) {
     req(meta_df())
     datatable(meta_df(), options=list(pageLength=15), caption="Uploaded plate metadata")
   })
+
   output$coverage_tbl <- renderDT({
     req(fcs_raw(), meta_df())
     sm <- tibble(sample=sampleNames(fcs_raw())) %>%
@@ -928,12 +914,51 @@ server <- function(input, output, session) {
       formatStyle("matched", backgroundColor=styleEqual(c(TRUE,FALSE), c("#d4edda","#f8d7da")))
   })
 
+  output$p_perturbation_dist <- renderPlot({
+    req(meta_df())
+    df  <- meta_df()
+    pal <- auto_palette(df$perturbation, perturbation_cols_default)
+
+    # facet by grouping columns that are present and have >1 unique value
+    facet_vars <- intersect(c("genotype","treatment","time"), colnames(df))
+    facet_vars <- facet_vars[
+      sapply(facet_vars, function(v) n_distinct(na.omit(df[[v]])) > 1)
+    ]
+
+    p <- df %>%
+      count(perturbation, across(any_of(facet_vars))) %>%
+      ggplot(aes(x=perturbation, y=n, fill=perturbation)) +
+      geom_col(width=.7) +
+      geom_text(aes(label=n), vjust=-.4, size=3.5, colour="grey30") +
+      scale_fill_manual(values=pal, na.value="grey80") +
+      theme_alba() +
+      theme(legend.position="none") +
+      labs(x="Perturbation", y="Number of wells", title=NULL)
+
+    if (length(facet_vars) > 0)
+      p <- p + facet_wrap(as.formula(paste("~", paste(facet_vars, collapse="+"))),
+                          scales="free_y")
+    p
+  })
+
+  output$perturbation_count_tbl <- renderDT({
+    req(meta_df())
+    df       <- meta_df()
+    grp_cols <- intersect(c("genotype","perturbation","treatment","time"), colnames(df))
+    df %>%
+      group_by(across(all_of(grp_cols))) %>%
+      summarise(n_wells=n(), .groups="drop") %>%
+      arrange(across(all_of(grp_cols))) %>%
+      datatable(options=list(pageLength=20, dom="ft"),
+                caption="Wells per group")
+  })
+
   # ── Analysis result outputs ───────────────────────────────────────────────────
-  output$p_cell_counts   <- renderPlot({ req(analysis()); analysis()$plots$p_cell_counts })
-  output$p_mean_both     <- renderPlot({ req(analysis()); analysis()$plots$p_mean_both })
-  output$p_co_dg_dgo     <- renderPlot({ req(analysis()); analysis()$plots$p_co_dg_dgo })
-  output$p_co_o_dgo      <- renderPlot({ req(analysis()); analysis()$plots$p_co_o_dgo })
-  output$p_puro_bar      <- renderPlot({ req(analysis()); analysis()$plots$p_puro_bar })
+  output$p_cell_counts <- renderPlot({ req(analysis()); analysis()$plots$p_cell_counts })
+  output$p_mean_both   <- renderPlot({ req(analysis()); analysis()$plots$p_mean_both })
+  output$p_co_dg_dgo   <- renderPlot({ req(analysis()); analysis()$plots$p_co_dg_dgo })
+  output$p_co_o_dgo    <- renderPlot({ req(analysis()); analysis()$plots$p_co_o_dgo })
+  output$p_puro_bar    <- renderPlot({ req(analysis()); analysis()$plots$p_puro_bar })
 
   output$cell_counts_tbl <- renderDT({
     req(analysis())
