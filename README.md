@@ -1,6 +1,9 @@
-# scenithR — Scenith Flow Cytometry Analysis
-
-A reproducible analysis pipeline for **Scenith** metabolic assays using flow cytometry.
+<p align="center">
+  <img src="scenithr_logo.png" alt="scenithR" width="220"/>
+</p>
+<p align="center">
+  <em>A reproducible analysis pipeline for Scenith metabolic assays using flow cytometry.</em>
+</p>
 
 ---
 

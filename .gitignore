@@ -6,4 +6,4 @@ archive/*
 archive/
 *.wsp
 local/
-
+*.svg
