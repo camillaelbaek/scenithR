@@ -13,6 +13,7 @@ authors:
   - given-names: "Camilla"       # fill in your full name
     family-names: "Reiter Elbæk"             # fill in your family name
     alias: celbaek
+    orcid: "https://orcid.org/0000-0002-6326-6047"   # replace with your ORCID
     affiliation: "Centre for Genomic Regulation (CRG), Barcelona"
 repository-code: "https://github.com/camillaelbaek/scenithR"
 url: "https://github.com/camillaelbaek/scenithR"
