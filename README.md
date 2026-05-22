@@ -17,7 +17,7 @@
 Paste this into your R console:
 
 ```r
-shiny::runGitHub("scenithR", "camillaelbaek", subdir = "ScenithApp")
+shiny::runGitHub("scenithR", "camillaelbaek", subdir = "scenithApp")
 ```
 
 R fetches the app from GitHub and opens it in your browser. The first run installs missing packages automatically — this may take a few minutes.
@@ -90,11 +90,11 @@ Available presets: APC/FITC, APC/BV421, PE/FITC, and "no live/dead stain".
 ### Alternative — download and run locally
 
 1. Click the green **Code** button on GitHub → **Download ZIP**, then unzip it anywhere.
-2. Open the `ScenithApp/` folder.
+2. Open the `scenithApp/` folder.
 3. Launch for your OS:
    - **macOS:** double-click `Mac_run_app.command` *(first time: right-click → Open)*
    - **Windows:** double-click `Win_run_app.bat`
-   - **Any OS:** run `Rscript run_app.R` in a terminal inside `ScenithApp/`
+   - **Any OS:** run `Rscript run_app.R` in a terminal inside `scenithApp/`
 
 ---
 
@@ -126,14 +126,19 @@ When `treatment` and/or `time` columns are present in the metadata with more tha
 
 ```
 .
-├── ScenithApp/
+├── scenithApp/
 │   ├── app.R                  # Shiny app
 │   ├── run_app.R              # Launcher: installs packages + starts app
 │   ├── Mac_run_app.command    # macOS double-click launcher
 │   └── Win_run_app.bat        # Windows double-click launcher
-├── fcs-input/                 # FCS files — git-ignored
+├── exampleData/               # FCS files — git-ignored (but should be added)
+├── logos/
+    └── scenithr_logo.png
 ├── .gitignore
+├── CITATION.cff
+├── LICENSE
 └── README.md
+
 ```
 
 > `.fcs`, `.xlsx`, `.wsp`, and `.docx` files are in `.gitignore` and not tracked by git.
