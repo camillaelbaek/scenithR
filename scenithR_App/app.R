@@ -2,6 +2,46 @@
 # Sequential gating workflow: Singlets → Live/Dead → Signal
 # Channel roles configured via preset or custom selection
 # Metadata: well_code, genotype, perturbation, treatment (opt), time (opt)
+required_cran <- c(
+  "shiny", "dplyr", "tidyr", "ggplot2", "DT",
+  "stringr", "purrr", "scales", "readr",
+  "readxl", "ggridges", "ggpubr", "viridis",
+  "ggbeeswarm", "sp", "magick", "imager"
+)
+
+required_bioc <- c(
+  "flowCore", "flowViz", "ggcyto", "openCyto"
+)
+
+installed <- installed.packages()[, "Package"]
+
+missing_cran <- setdiff(required_cran, installed)
+
+if (length(missing_cran) > 0) {
+  install.packages(
+    missing_cran,
+    repos = "https://cloud.r-project.org"
+  )
+}
+
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages(
+    "BiocManager",
+    repos = "https://cloud.r-project.org"
+  )
+}
+
+installed <- installed.packages()[, "Package"]
+
+missing_bioc <- setdiff(required_bioc, installed)
+
+if (length(missing_bioc) > 0) {
+  BiocManager::install(
+    missing_bioc,
+    ask = FALSE,
+    update = FALSE
+  )
+}
 
 suppressPackageStartupMessages({
   library(shiny)
