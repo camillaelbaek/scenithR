@@ -1,4 +1,4 @@
-# app.R — Scenith analysis Shiny app
+# app.R — ScenithR - Shiny app for analysis of SCENITH assay 
 # Sequential gating workflow: Singlets → Live/Dead → Signal
 # Channel roles configured via preset or custom selection
 # Metadata: well_code, genotype, perturbation, treatment (opt), time (opt)
