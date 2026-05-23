@@ -301,6 +301,7 @@ ui <- fluidPage(
           fluidRow(
             column(4,
               h5("Signal threshold"),
+              uiOutput("g3_channel_ui"),
               numericInput("g3_threshold", "Keep cells \u2265", value=80, min=0, step=10, width="100%"),
               hr(),
               h5("Preview samples"),
@@ -357,6 +358,7 @@ ui <- fluidPage(
 
 # ── Server ─────────────────────────────────────────────────────────────────────
 server <- function(input, output, session) {
+
 
   # ── Metadata ──────────────────────────────────────────────────────────────────
   meta_df <- reactive({
@@ -420,28 +422,137 @@ server <- function(input, output, session) {
     req(fcs_raw())
     colnames(fcs_raw())
   })
+    g1_axis_limits <- reactive({
 
-  # ── Channel configuration ─────────────────────────────────────────────────────
-  channel_cfg <- reactive({
-    preset_name <- req(input$preset)
-    preset      <- PANEL_PRESETS[[preset_name]]
-    if (preset_name != "Custom \u2013 configure below") return(preset)
+    req(fcs_raw())
+
+    cfg <- channel_cfg()
+
+    xchan <- cfg[["scatter_x"]]
+    ychan <- cfg[["scatter_y"]]
+
+    xs <- c()
+    ys <- c()
+
+    for (i in seq_along(fcs_raw())) {
+
+      ff <- fcs_raw()[[i]]
+
+      xs <- c(xs, exprs(ff)[, xchan])
+      ys <- c(ys, exprs(ff)[, ychan])
+    }
+
     list(
-      scatter_x = if (!is.null(input$ch_scatter_x)) input$ch_scatter_x else "FSC.A",
-      scatter_y = if (!is.null(input$ch_scatter_y)) input$ch_scatter_y else "FSC.H",
-      live_dead = if (!is.null(input$ch_live_dead) && input$ch_live_dead != "None") input$ch_live_dead else NULL,
-      signal    = if (!is.null(input$ch_signal))    input$ch_signal    else "APC.A"
+      x = range(xs, na.rm = TRUE),
+      y = range(ys, na.rm = TRUE)
     )
   })
 
-  output$custom_channel_ui <- renderUI({
-    chs <- c("None", avail_channels())
-    tagList(
-      selectInput("ch_scatter_x", "Scatter X (singlet gate X-axis)", choices=chs, selected=chs[chs=="FSC.A"][1]),
-      selectInput("ch_scatter_y", "Scatter Y (singlet gate Y-axis)", choices=chs, selected=chs[chs=="FSC.H"][1]),
-      selectInput("ch_live_dead", "Live/Dead channel (or None)",     choices=chs, selected="None"),
-      selectInput("ch_signal",    "Signal channel (puromycin etc.)", choices=chs[chs!="None"])
+  # ── Channel configuration ─────────────────────────────────────────────────────
+  
+  # ── Dynamic marker configuration ────────────────────────────────────────────
+
+  marker_cfg <- reactiveVal(
+    tibble(
+      marker = c("scatter_x", "scatter_y", "live_dead", "signal"),
+      channel = c("FSC.A", "FSC.H", NA, "APC.A")
     )
+  )
+  
+    channel_cfg <- reactive({
+
+    cfg <- marker_cfg()
+
+    for (i in seq_len(nrow(cfg))) {
+
+      marker_name <- input[[paste0("marker_name_", i)]]
+      marker_chan <- input[[paste0("marker_channel_", i)]]
+
+      if (!is.null(marker_name) && nzchar(marker_name)) {
+        cfg$marker[i] <- marker_name
+      }
+
+      cfg$channel[i] <- ifelse(
+        is.null(marker_chan) || marker_chan == "None",
+        NA,
+        marker_chan
+      )
+    }
+
+    out <- as.list(cfg$channel)
+    names(out) <- cfg$marker
+
+    out
+  })
+
+    output$custom_channel_ui <- renderUI({
+
+    req(avail_channels())
+
+    cfg <- marker_cfg()
+
+    tagList(
+
+      fluidRow(
+        column(
+          8,
+          textInput("new_marker", "Add marker")
+        ),
+        column(
+          4,
+          br(),
+          actionButton("add_marker", "Add")
+        )
+      ),
+
+      hr(),
+
+      lapply(seq_len(nrow(cfg)), function(i) {
+
+        fluidRow(
+
+          column(
+            5,
+            textInput(
+              paste0("marker_name_", i),
+              NULL,
+              value = cfg$marker[i]
+            )
+          ),
+
+          column(
+            7,
+            selectInput(
+              paste0("marker_channel_", i),
+              NULL,
+              choices = c("None", avail_channels()),
+              selected = ifelse(
+                is.na(cfg$channel[i]),
+                "None",
+                cfg$channel[i]
+              )
+            )
+          )
+        )
+      })
+    )
+  })
+  
+    observeEvent(input$add_marker, {
+
+    req(input$new_marker)
+
+    cfg <- marker_cfg()
+
+    cfg <- bind_rows(
+      cfg,
+      tibble(
+        marker = input$new_marker,
+        channel = NA_character_
+      )
+    )
+
+    marker_cfg(cfg)
   })
 
   output$preset_channel_summary <- renderUI({
@@ -449,8 +560,8 @@ server <- function(input, output, session) {
     if (is.null(cfg)) return(NULL)
     tags$div(class="tag-box",
       tags$span(class="ok", "\u2713 Preset channels:"), br(),
-      tags$span("Scatter X: ",  tags$b(cfg$scatter_x)), br(),
-      tags$span("Scatter Y: ",  tags$b(cfg$scatter_y)), br(),
+      tags$span("Scatter X: ",  tags$b(cfg[["scatter_x"]])), br(),
+      tags$span("Scatter Y: ",  tags$b(cfg[["scatter_y"]])), br(),
       tags$span("Live/Dead: ",  tags$b(if(is.null(cfg$live_dead)) "None" else cfg$live_dead)), br(),
       tags$span("Signal: ",     tags$b(cfg$signal))
     )
@@ -465,6 +576,20 @@ server <- function(input, output, session) {
       tags$code(paste(chs, collapse="   "))
     )
   })
+  
+    output$g3_channel_ui <- renderUI({
+
+    cfg <- channel_cfg()
+
+    available <- names(cfg)[!is.na(unlist(cfg))]
+
+    selectInput(
+      "g3_gate_channel",
+      "Gate channel",
+      choices = available,
+      selected = "signal"
+    )
+  })
 
   output$panel_tbl_ui <- renderUI({
     if (is.null(input$panel_file)) return(NULL)
@@ -476,11 +601,11 @@ server <- function(input, output, session) {
   # ── Gating helpers ─────────────────────────────────────────────────────────────
   cur_singlet_gate <- reactive({
     cfg <- channel_cfg()
-    req(cfg$scatter_x, cfg$scatter_y)
+    req(cfg[["scatter_x"]], cfg[["scatter_y"]])
     make_singlet_gate(
       input$g1_x1, input$g1_y1, input$g1_x2, input$g1_y2,
       input$g1_x3, input$g1_y3, input$g1_x4, input$g1_y4,
-      cfg$scatter_x, cfg$scatter_y
+      cfg[["scatter_x"]], cfg[["scatter_y"]]
     )
   })
 
@@ -514,25 +639,27 @@ server <- function(input, output, session) {
   # ── Gate 1 preview ────────────────────────────────────────────────────────────
   output$p_g1_preview <- renderPlot({
     req(fcs_raw(), input$g1_sample)
-    cfg <- channel_cfg(); req(cfg$scatter_x, cfg$scatter_y)
+    cfg <- channel_cfg(); req(cfg[["scatter_x"]], cfg[["scatter_y"]])
     pg  <- cur_singlet_gate()
     idx <- which(sampleNames(fcs_raw()) == input$g1_sample)
     if (!length(idx)) return(empty_gg("Sample not found."))
-    ggcyto(fcs_raw()[idx], aes_string(x=cfg$scatter_x, y=cfg$scatter_y)) +
+    lims <- g1_axis_limits()
+    ggcyto(fcs_raw()[idx], aes_string(x=cfg[["scatter_x"]], y=cfg[["scatter_y"]])) +
       geom_hex(bins=60) +
       geom_gate(pg, colour="red", size=0.7) +
       geom_stats() +
       scale_fill_viridis_c(option="magma") +
+      coord_cartesian(xlim = lims$x,ylim = lims$y) +
       theme_alba() +
       labs(title    = "Singlet gate preview",
            subtitle = paste0("Sample: ", input$g1_sample),
-           x=cfg$scatter_x, y=cfg$scatter_y, fill="Count")
+           x=cfg[["scatter_x"]], y=cfg[["scatter_y"]], fill="Count")
   })
 
   output$g1_stats_ui <- renderUI({
     req(fcs_raw(), input$g1_sample)
     tryCatch({
-      cfg <- channel_cfg(); req(cfg$scatter_x, cfg$scatter_y)
+      cfg <- channel_cfg(); req(cfg[["scatter_x"]], cfg[["scatter_y"]])
       pg  <- cur_singlet_gate()
       idx <- which(sampleNames(fcs_raw()) == input$g1_sample)
       fs_sub <- Subset(fcs_raw()[idx], pg)
@@ -549,7 +676,7 @@ server <- function(input, output, session) {
   # ── Gate 2: Live/Dead ─────────────────────────────────────────────────────────
   output$g2_content <- renderUI({
     cfg <- channel_cfg()
-    if (is.null(cfg$live_dead)) {
+    if (is.null(cfg[["live_dead"]])) {
       return(tags$div(style="margin-top:20px;",
         tags$p(class="ok", "\u2713 No live/dead channel configured \u2014 this step is skipped."),
         tags$p(class="small-note", "To enable, select a channel in the Channels tab.")))
@@ -558,10 +685,10 @@ server <- function(input, output, session) {
       column(4,
         h5("Live/Dead threshold"),
         tags$p(class="small-note",
-               paste0("Channel: ", cfg$live_dead,
+               paste0("Channel: ", cfg[["live_dead"]],
                       ". Cells BELOW the threshold are kept as live.")),
         numericInput("g2_threshold",
-                     paste0("Keep cells < (", cfg$live_dead, ")"),
+                     paste0("Keep cells < (", cfg[["live_dead"]], ")"),
                      value=4000, min=0, step=500, width="100%"),
         hr(),
         h5("Preview sample"),
@@ -578,7 +705,7 @@ server <- function(input, output, session) {
 
   output$p_g2_preview <- renderPlot({
     cfg <- channel_cfg()
-    if (is.null(cfg$live_dead)) return(invisible(NULL))
+    if (is.null(cfg[["live_dead"]])) return(invisible(NULL))
     req(fcs_raw(), input$g2_sample, input$g2_threshold)
     pg  <- cur_singlet_gate()
     idx <- which(sampleNames(fcs_raw()) == input$g2_sample)
@@ -586,8 +713,8 @@ server <- function(input, output, session) {
     fs_sing <- tryCatch(Subset(fcs_raw()[idx], pg), error=function(e) NULL)
     if (is.null(fs_sing)) return(empty_gg("Could not apply singlet gate."))
     thresh   <- input$g2_threshold
-    fitc_max <- max(exprs(fs_sing[[1]])[, cfg$live_dead], na.rm=TRUE)
-    ggcyto(fs_sing, aes_string(x=cfg$live_dead)) +
+    fitc_max <- max(exprs(fs_sing[[1]])[, cfg[["live_dead"]]], na.rm=TRUE)
+    ggcyto(fs_sing, aes_string(x=cfg[["live_dead"]])) +
       annotate("rect", xmin=-Inf,   xmax=thresh,   ymin=-Inf, ymax=Inf, fill="#1976D2", alpha=.15) +
       annotate("rect", xmin=thresh, xmax=fitc_max, ymin=-Inf, ymax=Inf, fill="red",     alpha=.10) +
       geom_density(fill="#1976D2", alpha=.6) +
@@ -595,17 +722,17 @@ server <- function(input, output, session) {
       scale_x_log10() + theme_alba() +
       labs(title    = "Live/Dead gate preview",
            subtitle = paste0("Blue = live (kept)   |   Red = dead (discarded)   |   threshold = ", thresh),
-           x=paste0(cfg$live_dead, " (log10)"), y="Density")
+           x=paste0(cfg[["live_dead"]], " (log10)"), y="Density")
   })
 
   output$g2_stats_ui <- renderUI({
     cfg <- channel_cfg()
-    if (is.null(cfg$live_dead) || is.null(input$g2_sample) || is.null(input$g2_threshold)) return(NULL)
+    if (is.null(cfg[["live_dead"]]) || is.null(input$g2_sample) || is.null(input$g2_threshold)) return(NULL)
     tryCatch({
       pg      <- cur_singlet_gate()
       idx     <- which(sampleNames(fcs_raw()) == input$g2_sample)
       fs_sing <- Subset(fcs_raw()[idx], pg)
-      lg      <- make_thresh_gate(cfg$live_dead, hi=input$g2_threshold, id="Live")
+      lg      <- make_thresh_gate(cfg[["live_dead"]], hi=input$g2_threshold, id="Live")
       fs_live <- Subset(fs_sing, lg)
       n_sing  <- nrow(exprs(fs_sing[[1]]))
       n_live  <- nrow(exprs(fs_live[[1]]))
@@ -619,19 +746,19 @@ server <- function(input, output, session) {
 
   # ── Gate 3: Signal ────────────────────────────────────────────────────────────
   output$p_g3_preview <- renderPlot({
-    cfg <- channel_cfg(); req(cfg$scatter_x, cfg$signal)
+    cfg <- channel_cfg(); req(cfg[["scatter_x"]], cfg[[input$g3_gate_channel]])
     req(fcs_raw(), input$g3_samples, input$g3_threshold)
     pg  <- cur_singlet_gate()
     idx <- which(sampleNames(fcs_raw()) %in% input$g3_samples)
     if (!length(idx)) return(empty_gg("No samples selected."))
     fs_sing <- tryCatch(Subset(fcs_raw()[idx], pg), error=function(e) NULL)
     if (is.null(fs_sing)) return(empty_gg("Could not apply singlet gate."))
-    fs_live <- if (!is.null(cfg$live_dead) && !is.null(input$g2_threshold)) {
-      lg <- make_thresh_gate(cfg$live_dead, hi=input$g2_threshold, id="Live")
+    fs_live <- if (!is.null(cfg[["live_dead"]]) && !is.null(input$g2_threshold)) {
+      lg <- make_thresh_gate(cfg[["live_dead"]], hi=input$g2_threshold, id="Live")
       tryCatch(Subset(fs_sing, lg), error=function(e) fs_sing)
     } else fs_sing
     thresh <- input$g3_threshold
-    ggcyto(fs_live, aes_string(x=cfg$scatter_x, y=cfg$signal)) +
+    ggcyto(fs_live, aes_string(x=cfg[["scatter_x"]], y=cfg[[input$g3_gate_channel]])) +
       geom_hex(bins=60) +
       scale_y_log10(limits=c(1, NA)) +
       geom_hline(yintercept=thresh, colour="red", linetype="dashed", linewidth=.8) +
@@ -639,22 +766,22 @@ server <- function(input, output, session) {
       facet_wrap(~ name) +
       theme_alba() +
       labs(title    = "Signal gate preview",
-           subtitle = paste0("Dashed line = threshold (", cfg$signal, " \u2265 ", thresh, ")"),
-           x=cfg$scatter_x, y=paste0(cfg$signal, " (log10)"), fill="Count")
+           subtitle = paste0("Dashed line = threshold (", cfg[[input$g3_gate_channel]], " \u2265 ", thresh, ")"),
+           x=cfg[["scatter_x"]], y=paste0(cfg[[input$g3_gate_channel]], " (log10)"), fill="Count")
   })
 
   output$g3_stats_ui <- renderUI({
     cfg <- channel_cfg()
-    if (is.null(cfg$signal) || is.null(input$g3_samples) || !length(input$g3_samples)) return(NULL)
+    if (is.null(cfg[[input$g3_gate_channel]]) || is.null(input$g3_samples) || !length(input$g3_samples)) return(NULL)
     tryCatch({
       pg      <- cur_singlet_gate()
       idx     <- which(sampleNames(fcs_raw()) == input$g3_samples[1])
       fs_sing <- Subset(fcs_raw()[idx], pg)
-      fs_live <- if (!is.null(cfg$live_dead) && !is.null(input$g2_threshold)) {
-        lg <- make_thresh_gate(cfg$live_dead, hi=input$g2_threshold, id="Live")
+      fs_live <- if (!is.null(cfg[["live_dead"]]) && !is.null(input$g2_threshold)) {
+        lg <- make_thresh_gate(cfg[["live_dead"]], hi=input$g2_threshold, id="Live")
         tryCatch(Subset(fs_sing, lg), error=function(e) fs_sing)
       } else fs_sing
-      sg     <- make_thresh_gate(cfg$signal, lo=input$g3_threshold, id="Signal")
+      sg     <- make_thresh_gate(cfg[[input$g3_gate_channel]], lo=input$g3_threshold, id="Signal")
       fs_sig <- tryCatch(Subset(fs_live, sg), error=function(e) NULL)
       n_live <- nrow(exprs(fs_live[[1]]))
       n_sig  <- if (!is.null(fs_sig)) nrow(exprs(fs_sig[[1]])) else NA
@@ -671,8 +798,8 @@ server <- function(input, output, session) {
     req(fcs_raw(), meta_df())
     meta <- meta_df()
     cfg  <- channel_cfg()
-    validate(need(!is.null(cfg$scatter_x), "Configure channels before running."))
-    validate(need(!is.null(cfg$signal),    "Signal channel not configured."))
+    validate(need(!is.null(cfg[["scatter_x"]]), "Configure channels before running."))
+    validate(need(!is.null(cfg[[input$g3_gate_channel]]),    "Signal channel not configured."))
 
     withProgress(message="Running analysis\u2026", value=0, {
 
@@ -681,12 +808,12 @@ server <- function(input, output, session) {
       pg      <- cur_singlet_gate()
       fs_sing <- Subset(fs, pg)
 
-      fs_live <- if (!is.null(cfg$live_dead) && !is.null(input$g2_threshold)) {
-        lg <- make_thresh_gate(cfg$live_dead, hi=input$g2_threshold, id="Live")
+      fs_live <- if (!is.null(cfg[["live_dead"]]) && !is.null(input$g2_threshold)) {
+        lg <- make_thresh_gate(cfg[["live_dead"]], hi=input$g2_threshold, id="Live")
         Subset(fs_sing, lg)
       } else fs_sing
 
-      sg     <- make_thresh_gate(cfg$signal, lo=input$g3_threshold, id="Signal")
+      sg     <- make_thresh_gate(cfg[[input$g3_gate_channel]], lo=input$g3_threshold, id="Signal")
       fs_sig <- Subset(fs_live, sg)
 
       sample_map <- tibble(sample=sampleNames(fs)) %>%
@@ -714,8 +841,8 @@ server <- function(input, output, session) {
           n_signal        = nrow(exprs(ff_sig)),
           pct_signal      = ifelse(nrow(exprs(ff_live))==0, NA_real_,
                                    100*nrow(exprs(ff_sig))/nrow(exprs(ff_live))),
-          mean_signal_all = mean(exprs(ff_live)[, cfg$signal], na.rm=TRUE),
-          mean_signal_pos = mean(exprs(ff_sig)[,  cfg$signal], na.rm=TRUE)
+          mean_signal_all = mean(exprs(ff_live)[, cfg[[input$g3_gate_channel]]], na.rm=TRUE),
+          mean_signal_pos = mean(exprs(ff_sig)[,  cfg[[input$g3_gate_channel]]], na.rm=TRUE)
         )
       }) %>% left_join(sample_map, by="sample")
 
@@ -729,7 +856,7 @@ server <- function(input, output, session) {
 
       cell_filtered <- cell_level %>%
         mutate(genotype = factor(genotype, levels=genotype_lvl)) %>%
-        filter(.data[[cfg$signal]] >= sig_thresh)
+        filter(.data[[cfg[[input$g3_gate_channel]]]] >= sig_thresh)
 
       grp_vars <- "genotype"
       if ("treatment" %in% colnames(meta) &&
@@ -742,7 +869,7 @@ server <- function(input, output, session) {
         mutate(genotype = factor(genotype, levels=genotype_lvl)) %>%
         filter(perturbation %in% c("Co","DG","O","DGO")) %>%
         group_by(across(all_of(c(grp_vars, "perturbation")))) %>%
-        summarise(geo_mean = geomfi(.data[[cfg$signal]]), .groups="drop")
+        summarise(geo_mean = geomfi(.data[[cfg[[input$g3_gate_channel]]]]), .groups="drop")
 
       has_dg <- all(c("Co","DG","DGO") %in% unique(geo_means$perturbation))
       has_o  <- all(c("Co","O","DGO")  %in% unique(geo_means$perturbation))
@@ -782,7 +909,7 @@ server <- function(input, output, session) {
         geom_col() + coord_flip() +
         scale_fill_manual(values=p_cols, na.value="grey80") + theme_alba() +
         labs(title="Mean signal \u2013 all live cells",
-             x="Sample", y=paste0("Mean ", cfg$signal), fill="Perturbation")
+             x="Sample", y=paste0("Mean ", cfg[[input$g3_gate_channel]]), fill="Perturbation")
 
       p_mean_pos <- ggplot(puro_summary,
                            aes(x=reorder(sample, mean_signal_pos),
@@ -790,7 +917,7 @@ server <- function(input, output, session) {
         geom_col() + coord_flip() +
         scale_fill_manual(values=p_cols, na.value="grey80") + theme_alba() +
         labs(title="Mean signal \u2013 signal-positive cells",
-             x="Sample", y=paste0("Mean ", cfg$signal, " (signal+)"), fill="Perturbation")
+             x="Sample", y=paste0("Mean ", cfg[[input$g3_gate_channel]], " (signal+)"), fill="Perturbation")
 
       p_mean_both <- ggpubr::ggarrange(p_mean_all, p_mean_pos, ncol=1)
 
@@ -798,7 +925,7 @@ server <- function(input, output, session) {
       p_co_dg_dgo <- if (!is.null(scenith_dg)) {
         tryCatch({
           cell_filtered %>% filter(perturbation %in% c("Co","DG","DGO")) %>%
-            ggplot(aes(x=.data[[cfg$signal]], fill=perturbation)) +
+            ggplot(aes(x=.data[[cfg[[input$g3_gate_channel]]]], fill=perturbation)) +
             geom_density(alpha=.6, aes(color=perturbation)) +
             scale_x_log10(limits=c(1,10e6)) +
             facet_wrap(~ genotype, ncol=2) +
@@ -835,14 +962,14 @@ server <- function(input, output, session) {
             theme_alba(14) +
             labs(title    = "Glucose dependence and FAO/AAO capacity",
                  subtitle = "Co vs DG vs DGO; arrows = distances between geometric means",
-                 x=paste0(cfg$signal," (log10)"), y="Density", fill="Perturbation")
+                 x=paste0(cfg[[input$g3_gate_channel]]," (log10)"), y="Density", fill="Perturbation")
         }, error=function(e) empty_gg(paste("Plot error:", conditionMessage(e))))
       } else empty_gg("Co, DG and DGO perturbations required.")
 
       p_co_o_dgo <- if (!is.null(scenith_o)) {
         tryCatch({
           cell_filtered %>% filter(perturbation %in% c("Co","O","DGO")) %>%
-            ggplot(aes(x=.data[[cfg$signal]], fill=perturbation)) +
+            ggplot(aes(x=.data[[cfg[[input$g3_gate_channel]]]], fill=perturbation)) +
             geom_density(alpha=.6, aes(color=perturbation)) +
             scale_x_log10(limits=c(1,10e6)) +
             facet_wrap(~ genotype, ncol=2) +
@@ -879,7 +1006,7 @@ server <- function(input, output, session) {
             theme_alba(14) +
             labs(title    = "Mitochondrial dependence and glycolytic capacity",
                  subtitle = "Co vs O vs DGO; arrows = distances between geometric means",
-                 x=paste0(cfg$signal," (log10)"), y="Density", fill="Perturbation")
+                 x=paste0(cfg[[input$g3_gate_channel]]," (log10)"), y="Density", fill="Perturbation")
         }, error=function(e) empty_gg(paste("Plot error:", conditionMessage(e))))
       } else empty_gg("Co, O and DGO perturbations required.")
 
@@ -897,9 +1024,9 @@ server <- function(input, output, session) {
         facet_wrap(facet_f, ncol=4) +
         scale_fill_manual(values=p_cols) +
         theme_alba(14) +
-        labs(title    = paste0("Signal per condition (", cfg$signal, ")"),
+        labs(title    = paste0("Signal per condition (", cfg[[input$g3_gate_channel]], ")"),
              subtitle = "Geometric mean in live singlet cells",
-             x="Perturbation", y=paste0("Geometric mean ", cfg$signal), fill="Perturbation")
+             x="Perturbation", y=paste0("Geometric mean ", cfg[[input$g3_gate_channel]]), fill="Perturbation")
 
       setProgress(1)
 
