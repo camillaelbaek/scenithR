@@ -6,7 +6,7 @@ required_cran <- c(
   "shiny", "dplyr", "tidyr", "ggplot2", "DT",
   "stringr", "purrr", "scales", "readr",
   "readxl", "ggridges", "ggpubr", "viridis",
-  "ggbeeswarm", "sp", "magick", "imager"
+  "ggbeeswarm", "sp", "magick", "imager","tidyverse"
 )
 
 required_bioc <- c(
